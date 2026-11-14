@@ -585,6 +585,7 @@ const PHASES = [
 /* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
 const STAR_OUT = {
   met:       ["Star met", "ok"],
+  pending:   ["In progress", "neutral"],
   returned:  ["Rock returned", "bad"],
   missed:    ["Star missed", "bad"],
   unchecked: ["Not checked", "neutral"],
@@ -1126,11 +1127,11 @@ function currentSummary(){
   const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
   return {
     id: S.id, ship: S.ship, star: S.star, starRock: S.starRock || null,
-    rockReturned: rockReturnedOf(), votes: tally(S.starVotes), outcome: starOutcome(),
+    rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star ? "pending" : starOutcome(),
     finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
     counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
     rocks: problems(S.cards).map(c => c.text),
-    participation: participationOf(),
+    participation: S.phase === 0 ? null : participationOf(),
     actions: S.cards.filter(c => c.scraped).map(c => c.text),
     startedAt: S.startedAt, endedAt: Date.now()
   };
@@ -1177,7 +1178,7 @@ function logbookSection(includeCurrent, noHeading){
     h("div", {}, rows.slice().reverse().map(r => {
       const bits = [];
       if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
-      if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true ? "came back" : r.rockReturned === false ? "did not come back" : "not checked"}`);
+      if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
       if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
       if (!bits.length) bits.push("No star this voyage");
       const d = h("div", { class:"voy-d" });
@@ -1377,7 +1378,7 @@ function renderModal(){
   if (!centerMode){ box.hidden = true; return; }
   body.innerHTML = "";
   if (centerMode === "logbook"){
-    body.append(h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true));
+    body.append(...[h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true)].filter(Boolean));
   } else if (centerMode === "links"){
     body.append(h("h2", { id:"centerTitle", text:"Share this retro" }), ...linksSection());
   }
