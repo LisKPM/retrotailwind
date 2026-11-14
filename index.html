@@ -46,6 +46,9 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 .btn[aria-pressed="true"],.btn.on{background:rgba(127,214,194,.25);border-color:rgba(127,214,194,.6)}
 .btn.small{padding:4px 9px;font-size:13px}
 .btn.primary{background:var(--wind);color:#0b1a2c;border-color:transparent;font-weight:700}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled:hover{background:rgba(255,255,255,.1)}
+.btn.primary:disabled:hover{background:var(--wind)}
 #silentChip{font-size:13px;padding:4px 10px;border-radius:99px;background:rgba(255,229,154,.2);color:var(--star)}
 
 /* ship → star title */
@@ -158,6 +161,29 @@ table.log th,table.log td{text-align:left;padding:6px 4px;border-bottom:1px soli
 table.log th{color:var(--ui-muted);font-weight:500}
 .bar{height:6px;border-radius:3px;background:var(--wind);margin-top:4px}
 ul.actions{margin:4px 0;padding-left:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:6px 0 12px}
+.stat{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 10px}
+.stat span{display:block;font-size:12px;color:var(--ui-muted)}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;margin:2px 0}
+.stat b.bad{color:var(--rock)}
+.stat small{display:block;font-size:11px;color:var(--ui-muted);opacity:.85}
+.voy{border-top:1px solid var(--ui-line);padding:8px 0}
+.voy-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.voy-h .kn{color:var(--ui-muted);font-size:12px;font-variant-numeric:tabular-nums}
+.badge{margin-left:auto;font-size:12px;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.badge.inline{margin-left:0}
+.badge.ok{background:rgba(127,214,194,.18);color:var(--wind)}
+.badge.bad{background:rgba(240,138,126,.18);color:var(--rock)}
+.badge.neutral{background:rgba(255,255,255,.08);color:var(--ui-muted)}
+.voy-d{font-size:12.5px;color:var(--ui-muted);margin-top:3px}
+.voy-d .s{color:var(--star)}
+.rockpick{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.rockpick .btn{text-align:left;white-space:normal;display:flex;gap:8px;align-items:center}
+.rockpick .btn .v{margin-left:auto;font-size:12px;color:var(--ui-muted);white-space:nowrap}
+.rockpick .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.textin{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);margin-top:6px}
+.votebar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}
+ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .center-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
 
 /* overlays */
@@ -470,13 +496,25 @@ let C = {...DEFAULTS};
 
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
-  { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship and the star, then check in." },
+  { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
   { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, rocks and barnacles. The boat reacts live." },
   { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Votes change the speed." },
   { key:"course", name:"Set course", std:"Decide what to do",   hint:"Turn top rocks and barnacles into action items (★)." },
-  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Did we get closer to the star? Save the voyage." },
+  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to a rock, save the voyage." },
 ];
-const OUTCOMES = { reached:"Reached ★", closer:"Closer", "not-yet":"Not yet" };
+/* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
+const STAR_OUT = {
+  met:       ["Star met", "ok"],
+  returned:  ["Rock returned", "bad"],
+  missed:    ["Star missed", "bad"],
+  unchecked: ["Not checked", "neutral"],
+  none:      ["No star", "neutral"],
+  reached:   ["Reached ★", "ok"],
+  closer:    ["Closer", "neutral"],
+  "not-yet": ["Not yet", "neutral"],
+};
+const MET = new Set(["met","reached"]);
+const SCORED = new Set(["met","returned","missed","reached","closer","not-yet"]);
 const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|start|stop|hold|schedule|review|refactor|migrate|remove|introduce|try|organi[sz]e|plan)\b/i;
 
 /* ================================================================
@@ -505,7 +543,11 @@ function stepSpeed(v, target, dt){
 /* ================================================================
    STATE
    team = { id, name, fkHash, config, sessions:[archived], current: session }
-   session = { id, ship, star, lastStar, phase, cards, silentUntil, history, outcome, startedAt }
+   session = { id, ship, star, starRock, starVotes, rockReturned, nextStar, contributors,
+               phase, cards, silentUntil, history, startedAt }
+   star      = the goal checked in THIS retro (set at the previous Harbor)
+   starRock  = the rock/barnacle text that star was meant to remove
+   nextStar  = { rockId, rock, text } picked at this Harbor for the next retro
    ================================================================ */
 const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
 let reduced = reducedMQ.matches;
@@ -522,11 +564,42 @@ let speed = 0;
 let history = [];
 let bc = null;
 
-function newSession({ ship = "", star = "", lastStar = null } = {}){
-  return { id: rid(9), ship, star, lastStar, phase: 0, cards: [], silentUntil: 0, history: [], outcome: null, startedAt: Date.now() };
+function newSession({ ship = "", star = "", starRock = null } = {}){
+  return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {},
+    phase: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
 }
 const byId = id => S.cards.find(c => c.id === id);
 const isFac = () => role === "facilitator";
+
+/* ================================================================
+   STAR CHECK (pure — becomes lib/star.ts)
+   A star is tied to a rock. Next retro: did that rock come back?
+   ================================================================ */
+const STOP = new Set("the and for with was were are been our not too but its this that from into very had has have just got get".split(" "));
+const stem = w => w.length > 4 ? w.replace(/(ing|ed|es|s)$/, "") : w;
+const words = s => (s || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
+function similar(a, b){
+  const A = new Set(words(a)), B = new Set(words(b));
+  if (!A.size || !B.size) return false;
+  let n = 0; for (const w of A) if (B.has(w)) n++;
+  return n / Math.min(A.size, B.size) >= .5;
+}
+const problems = cards => cards.filter(c => c.type !== "wind");
+const tally = (v = {}) => { const a = Object.values(v); return { yes: a.filter(x => x === "yes").length, no: a.filter(x => x === "no").length }; };
+function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => similar(c.text, s.starRock)) : []; }
+function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
+function starOutcome(s = S){
+  if (!s.star) return "none";
+  const ret = rockReturnedOf(s), t = tally(s.starVotes);
+  if (ret === true) return "returned";
+  if (ret === false) return t.no > t.yes ? "missed" : "met";
+  if (!t.yes && !t.no) return "unchecked";
+  return t.yes > t.no ? "met" : "missed";
+}
+function participationOf(s = S){
+  const added = Object.keys(s.contributors || {}).length;
+  return { added, present: Math.max(added, people().length) };
+}
 
 /* ================================================================
    SYNC — every change is an action. Applied locally, saved, and
@@ -547,6 +620,7 @@ function apply(a, local){
     case "card.add": {
       if (byId(a.card.id)) return;
       S.cards.push(a.card); buildCard(a.card, true);
+      if (a.by){ (S.contributors ||= {})[a.by] = 1; }
       recompute(); updateCounts();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
       if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
@@ -589,9 +663,20 @@ function apply(a, local){
       break;
     case "cards.replace":
       S.cards = a.cards; rebuildCards();
+      S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = 1; });
+      if (centerOpen()) renderCenter();
       break;
-    case "outcome":
-      S.outcome = a.outcome; renderCenter();
+    case "starVote":
+      S.starVotes ||= {};
+      if (a.v) S.starVotes[a.pid] = a.v; else delete S.starVotes[a.pid];
+      if (centerOpen()) renderCenter();
+      break;
+    case "rockReturned":
+      S.rockReturned = a.value; renderCenter();
+      break;
+    case "nextStar":
+      S.nextStar = a.nextStar;
+      if (!local || a.rerender) renderCenter();
       break;
     case "session.next":
       team.sessions = a.sessions; team.current = S = a.session;
@@ -797,12 +882,14 @@ function renderPhase(draftStar){
     const b = h("button", { class: "step" + (i < S.phase ? " done" : ""), type:"button",
       "aria-current": i === S.phase ? "step" : null, title: `${p.name} · ${p.std}`,
       "aria-label": `Phase ${i+1}: ${p.name} (${p.std})`, "aria-disabled": isFac() ? null : "true",
-      onclick: () => { if (isFac() && i !== S.phase) dispatch({ type:"phase", phase: i }); } },
+      onclick: () => { if (!isFac()) return; if (i !== S.phase) dispatch({ type:"phase", phase: i }); else reopenPhaseCard(); } },
       h("span", { class:"num", text: i+1 }), h("span", { class:"nm", text: p.name }));
     steps.appendChild(b);
   });
   $("prevPhase").disabled = S.phase === 0;
-  $("nextPhase").disabled = S.phase === PHASES.length - 1;
+  const atEnd = S.phase === PHASES.length - 1;
+  $("nextPhase").textContent = atEnd ? "Finish ✓" : "Next →";
+  $("nextPhase").title = atEnd ? "Open the Harbor summary to save this voyage" : "";
   const p = PHASES[S.phase];
   const star = draftStar ?? S.star;
   const hint = $("phaseHint");
@@ -964,35 +1051,154 @@ function linksSection(){
     isFac() ? linkRow("Facilitator link (keep private)", facLink(), "This one controls phases, names and the timer. Don't share it.") : []
   ];
 }
-function logbookSection(includeCurrent){
+function currentSummary(){
+  const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
+  return {
+    id: S.id, ship: S.ship, star: S.star, starRock: S.starRock || null,
+    rockReturned: rockReturnedOf(), votes: tally(S.starVotes), outcome: starOutcome(),
+    finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
+    counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
+    rocks: problems(S.cards).map(c => c.text),
+    participation: participationOf(),
+    actions: S.cards.filter(c => c.scraped).map(c => c.text),
+    startedAt: S.startedAt, endedAt: Date.now()
+  };
+}
+/* Rocks in the newest voyage that also showed up in each of the voyages right before it */
+function recurringRocks(rows){
+  const latest = rows[rows.length - 1];
+  if (!latest || !latest.rocks) return [];
+  const out = [];
+  for (const r of latest.rocks){
+    if (out.some(o => similar(o.text, r))) continue;
+    let streak = 1;
+    for (let i = rows.length - 2; i >= 0; i--){
+      if ((rows[i].rocks || []).some(x => similar(x, r))) streak++; else break;
+    }
+    if (streak >= 3) out.push({ text: r, streak });
+  }
+  return out;
+}
+function badge(outcome, inline){
+  const [label, tone] = STAR_OUT[outcome] || STAR_OUT.none;
+  return h("span", { class: `badge ${tone}${inline ? " inline" : ""}`, text: label });
+}
+function logbookSection(includeCurrent, noHeading){
   const rows = [...team.sessions];
-  if (includeCurrent) rows.push({ ship:S.ship, star:S.star, outcome:S.outcome, finalSpeed:+speed.toFixed(1), current:true });
+  if (includeCurrent) rows.push({ ...currentSummary(), current: true });
   if (!rows.length) return [h("h3", { text:"Logbook" }), h("p", { class:"muted", text:"No past voyages yet. They appear here after each Harbor." })];
-  const max = Math.max(C.MAX_SPEED, ...rows.map(r => r.finalSpeed || 0));
+
+  const scored = rows.filter(r => SCORED.has(r.outcome));
+  const met = scored.filter(r => MET.has(r.outcome)).length;
+  const recurring = recurringRocks(rows);
+  const lastP = [...rows].reverse().find(r => r.participation && r.participation.present);
+  const speeds = rows.map(r => r.finalSpeed).filter(v => v != null);
+  const stat = (label, value, note, bad) => h("div", { class:"stat" }, h("span", { text: label }), h("b", { class: bad ? "bad" : null, text: value }), h("small", { text: note }));
+
   return [
-    h("h3", { text:"Logbook" }),
-    h("table", { class:"log" },
-      h("thead", {}, h("tr", {}, h("th", { text:"Ship" }), h("th", { text:"Star" }), h("th", { text:"Star outcome" }), h("th", { text:"Final speed" }))),
-      h("tbody", {}, rows.slice().reverse().map(r => h("tr", {},
-        h("td", { text: (r.ship || "Unnamed") + (r.current ? " (now)" : "") }),
-        h("td", { text: r.star || "—" }),
-        h("td", { text: r.outcome ? OUTCOMES[r.outcome] : "—" }),
-        h("td", {}, `${(r.finalSpeed ?? 0).toFixed(1)} kn`, h("div", { class:"bar", style:`width:${Math.round((r.finalSpeed||0)/max*100)}%` }))
-      )))
-    )
+    noHeading ? null : h("h3", { text:"Logbook" }),
+    h("div", { class:"stats" },
+      stat("Star hit rate", scored.length ? `${met} of ${scored.length}` : "—", "main score"),
+      stat("Recurring rocks", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0),
+      stat("Participation", lastP ? `${lastP.participation.added} of ${lastP.participation.present}` : "—", "added a card"),
+      stat("Speed trend", speeds.length > 1 ? `${speeds[0].toFixed(1)} → ${speeds[speeds.length-1].toFixed(1)} kn` : speeds.length ? `${speeds[0].toFixed(1)} kn` : "—", "mood only, not scored")
+    ),
+    h("div", {}, rows.slice().reverse().map(r => {
+      const bits = [];
+      if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
+      if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true ? "came back" : r.rockReturned === false ? "did not come back" : "not checked"}`);
+      if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
+      if (!bits.length) bits.push("No star this voyage");
+      const d = h("div", { class:"voy-d" });
+      bits.forEach((x, i) => { if (i) d.append(" · "); d.append(x); });
+      return h("div", { class:"voy" },
+        h("div", { class:"voy-h" },
+          h("b", { text: (r.ship || "Unnamed ship") + (r.current ? " (now)" : "") }),
+          h("span", { class:"kn", text: `${(r.finalSpeed ?? 0).toFixed(1)} kn` }),
+          badge(r.outcome)),
+        d);
+    }))
   ];
+}
+function voteButtons(){
+  const mine = (S.starVotes || {})[me.id], t = tally(S.starVotes);
+  const b = (v, label) => h("button", { class:"btn small", type:"button", "aria-pressed": String(mine === v), text: label,
+    onclick: () => dispatch({ type:"starVote", pid: me.id, v: mine === v ? null : v }) });
+  return h("div", { class:"votebar" }, b("yes", "Yes, we hit it"), b("no", "No, not yet"), h("span", { class:"muted", text:`${t.yes} yes · ${t.no} no` }));
+}
+function starCheckSection(where){
+  if (!S.star) return [h("h3", { text:"Star check" }), h("p", { class:"muted", text:"No star to check this time." })];
+  const out = [h("h3", { text:"Star check" }), h("p", { class:"starline", text:`★ ${S.star}` })];
+  if (S.starRock){
+    out.push(h("p", { class:"muted" }, "Tied to the rock ", h("b", { text:`“${S.starRock}”` }), ". The star is met if that rock doesn't come back."));
+    if (where === "harbor"){
+      const m = rockMatches(), ret = rockReturnedOf();
+      out.push(m.length
+        ? h("div", {}, h("p", { class:"muted", text:"These cards look like the same rock:" }), h("ul", { class:"matches" }, m.map(c => h("li", { text: c.text }))))
+        : h("p", { class:"muted", text:"No matching rock or barnacle this retro." }));
+      if (isFac()){
+        out.push(h("div", { class:"votebar" },
+          h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === true), text:"It came back", onclick: () => dispatch({ type:"rockReturned", value: true }) }),
+          h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === false), text:"It didn't come back", onclick: () => dispatch({ type:"rockReturned", value: false }) }),
+          h("span", { class:"muted", text: S.rockReturned == null ? "auto-detected, you can override" : "set by facilitator" })));
+      }
+    } else {
+      out.push(h("p", { class:"muted", text:"We'll see if it comes back once cards are in. Confirm at the Harbor." }));
+    }
+  } else {
+    out.push(h("p", { class:"muted", text:"No rock tied to this star, so the team vote decides." }));
+  }
+  out.push(h("p", { text:"Did we hit it? Everyone votes." }), voteButtons());
+  if (where === "harbor") out.push(h("p", {}, "Result: ", badge(starOutcome(), true)));
+  return out;
+}
+function nextStarSection(){
+  const out = [h("h3", { text:"Next star" })];
+  const ns = S.nextStar;
+  if (!isFac()){
+    out.push(ns && (ns.text || ns.rock)
+      ? h("p", {}, h("span", { class:"starline", text:`★ ${ns.text || "(not worded yet)"}` }), ns.rock ? h("span", { class:"muted", text:` · beats “${ns.rock}”` }) : null)
+      : h("p", { class:"muted", text:"The facilitator is picking the next star from today's rocks." }));
+    return out;
+  }
+  out.push(h("p", { class:"muted", text:"Pick the rock or barnacle you most want gone. Then write the star as what you'll see when it's gone." }));
+  const top = problems(S.cards).slice().sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 6);
+  if (top.length){
+    out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Rock for the next star" }, top.map(c => {
+      const on = ns && ns.rockId === c.id;
+      return h("button", { class:"btn small", type:"button", "aria-pressed": String(!!on),
+        onclick: () => dispatch({ type:"nextStar", rerender:true, nextStar: on ? { ...ns, rockId:null, rock:null } : { text: ns?.text || "", rockId: c.id, rock: c.text } }) },
+        h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
+    })));
+  } else {
+    out.push(h("p", { class:"muted", text:"No rocks this retro. You can still write a star; the team vote will decide next time." }));
+  }
+  const inp = h("input", { class:"textin", id:"nextStarIn", maxlength:80, placeholder:"PR reviews done within 24 hours", "aria-label":"Next star", value: ns?.text || "" });
+  let t = null;
+  inp.oninput = () => { clearTimeout(t); t = setTimeout(() => dispatch({ type:"nextStar", nextStar: { rockId: S.nextStar?.rockId || null, rock: S.nextStar?.rock || null, text: inp.value.trim() } }), 250); };
+  out.push(inp);
+  return out;
+}
+const centerOpen = () => !$("center").hidden;
+function reopenPhaseCard(){
+  if (S.phase !== 0 && S.phase !== 4) return;
+  centerMode = null; centerDismissed = false;
+  renderCenter();
 }
 function renderCenter(){
   const box = $("center"), body = $("centerBody");
   const mode = centerMode || (centerDismissed ? null : S.phase === 0 ? "dock" : S.phase === 4 ? "harbor" : null);
   if (!mode){ box.hidden = true; return; }
+  const keepFocus = document.activeElement && document.activeElement.id === "nextStarIn";
+  const scroll = box.scrollTop;
   body.innerHTML = "";
   const fac = isFac();
   if (mode === "dock"){
     body.append(
       h("h2", { id:"centerTitle", text:"⚓ Dock · Set the stage" }),
-      h("p", { text: fac ? "Before we cast off: name the ship and the star we're steering toward. The star is the team's improvement goal, worded as an outcome." : "We're at the dock. The facilitator will cast off soon." }),
-      S.lastStar ? h("p", { class:"muted" }, "Last retro's star: ", h("span", { class:"starline", text:`★ ${S.lastStar.text}` }), ` — ${OUTCOMES[S.lastStar.outcome] || "no outcome"}${S.star && S.star === S.lastStar.text ? " · carried over" : ""}`) : null,
+      h("p", { text: fac ? "Before we cast off: name the ship, then check last retro's star together." : "We're at the dock. Vote on the star while the facilitator gets ready." }),
+      ...starCheckSection("dock"),
+      !S.star ? h("p", { class:"muted", text:"At the Harbor you'll pick one rock from this retro and set a star to beat it." }) : null,
       h("p", { class:"muted", text:"Check-in: in one word, what was the weather like for you this sprint?" }),
       ...linksSection(),
       fac ? h("div", { class:"center-actions" }, h("button", { class:"btn primary", type:"button", text:"Cast off → Sail", onclick: () => dispatch({ type:"phase", phase:1 }) })) : null
@@ -1003,26 +1209,24 @@ function renderCenter(){
     body.append(
       h("h2", { id:"centerTitle", text:"⚓ Harbor · Close" }),
       h("p", { class:"muted", text: S.ship || "Unnamed ship" }),
-      C.SHOW_SPEEDOMETER ? h("p", {}, h("span", { class:"big", text:`${speed.toFixed(1)} kn` }), h("span", { class:"muted", text:` final · ${avg.toFixed(1)} kn average` })) : null,
-      h("h3", { text:"Our star" }),
-      h("p", { class:"starline", text: S.star ? `★ ${S.star}` : "No star named this time" }),
-      h("p", { class:"muted", text:"Did we get closer?" }),
-      h("div", { class:"outcomes" }, Object.entries(OUTCOMES).map(([k, label]) =>
-        h("button", { class:"btn small", type:"button", "aria-pressed": String(S.outcome === k), disabled: !fac, text: label,
-          onclick: () => dispatch({ type:"outcome", outcome:k }) }))),
+      C.SHOW_SPEEDOMETER ? h("p", {}, h("span", { class:"big", text:`${speed.toFixed(1)} kn` }), h("span", { class:"muted", text:` final · ${avg.toFixed(1)} kn average · mood, not the score` })) : null,
+      ...starCheckSection("harbor"),
+      ...nextStarSection(),
       h("h3", { text:`Action items (${actions.length})` }),
       actions.length ? h("ul", { class:"actions" }, actions.map(c => h("li", { text: c.text }))) : h("p", { class:"muted", text:"None yet. Turn rocks and barnacles into ★ in Set course." }),
       ...logbookSection(true),
       fac ? h("div", { class:"center-actions" },
-        h("p", { class:"muted", style:"flex:1;margin:0", text: S.outcome === "reached" ? "Star reached — you'll pick a new one at the Dock." : "The star carries over to the next retro." }),
+        h("p", { class:"muted", style:"flex:1;margin:0", text: S.nextStar && (S.nextStar.text || S.nextStar.rock) ? "The next star and its rock go to the next Dock." : "No next star picked yet. You can still save." }),
         h("button", { class:"btn primary", type:"button", text:"Save voyage & start next retro", onclick: nextRetro })) : null
     );
   } else if (mode === "logbook"){
-    body.append(h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true));
+    body.append(h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true));
   } else if (mode === "links"){
     body.append(h("h2", { id:"centerTitle", text:"Share this retro" }), ...linksSection());
   }
   box.hidden = false;
+  box.scrollTop = scroll;
+  if (keepFocus){ const i = $("nextStarIn"); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
 $("centerClose").onclick = () => { if (centerMode) centerMode = null; else centerDismissed = true; renderCenter(); };
 
@@ -1031,16 +1235,10 @@ function nextShipName(name){
   return name.replace(/\d+/, n => String(+n + 1));
 }
 function nextRetro(){
-  const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
-  const summary = {
-    id: S.id, ship: S.ship, star: S.star, outcome: S.outcome || "not-yet",
-    finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
-    counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
-    actions: S.cards.filter(c => c.scraped).map(c => c.text),
-    startedAt: S.startedAt, endedAt: Date.now()
-  };
-  const carry = summary.outcome === "reached" ? "" : S.star;
-  const session = newSession({ ship: nextShipName(S.ship), star: carry, lastStar: S.star ? { text: S.star, outcome: summary.outcome } : null });
+  const summary = currentSummary();
+  const ns = S.nextStar || {};
+  const star = ns.text || (ns.rock ? `“${ns.rock}” stays gone` : "");
+  const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null });
   dispatch({ type:"session.next", sessions: [...team.sessions, summary], session });
 }
 
@@ -1067,9 +1265,11 @@ function makeCard(type, text, author, authorName, anonymous){
 function simStep(){
   if (!sims.length) return;
   const p = pick(sims);
-  if (S.phase === 1){
+  if (S.phase === 0 && S.star){
+    if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
+  } else if (S.phase === 1){
     const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
-    dispatch({ type:"card.add", card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
+    dispatch({ type:"card.add", by: p.id, card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
   } else if (S.phase === 2 && S.cards.length){
     const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
     if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
@@ -1083,7 +1283,7 @@ function toggleSim(){
   const on = !simTimer;
   $("simBtn").setAttribute("aria-pressed", on);
   $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
-  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast("Simulated people add cards in Sail and vote in Navigate"); }
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
   else { clearTimeout(simTimer); simTimer = null; ensureSims(0); }
 }
 function loadExample(){
@@ -1360,14 +1560,14 @@ document.addEventListener("keydown", e => {
 $("shipIn").oninput = () => onNameInput("ship");
 $("starIn").oninput = () => onNameInput("star");
 $("prevPhase").onclick = () => S.phase > 0 && dispatch({ type:"phase", phase: S.phase - 1 });
-$("nextPhase").onclick = () => S.phase < 4 && dispatch({ type:"phase", phase: S.phase + 1 });
+$("nextPhase").onclick = () => { if (S.phase < 4) dispatch({ type:"phase", phase: S.phase + 1 }); else reopenPhaseCard(); };
 
 $("addForm").onsubmit = e => {
   e.preventDefault();
   if (S.phase !== 1) return;
   const text = $("cardText").value.trim(); if (!text) return;
   const type = new FormData(e.target).get("type");
-  dispatch({ type:"card.add", card: makeCard(type, text, me.id, me.name, $("anon").checked) });
+  dispatch({ type:"card.add", by: me.id, card: makeCard(type, text, me.id, me.name, $("anon").checked) });
   $("cardText").value = ""; $("cardText").focus();
 };
 $("simBtn").onclick = toggleSim;
