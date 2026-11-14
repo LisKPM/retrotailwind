@@ -52,29 +52,83 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 #silentChip{font-size:13px;padding:4px 10px;border-radius:99px;background:rgba(255,229,154,.2);color:var(--star)}
 
 /* ship → star title */
-#titlebar{position:fixed;top:56px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;
-  background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:99px;padding:4px 14px;z-index:21;
-  max-width:calc(100vw - 24px)}
+#voyage{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:21;display:flex;flex-direction:column;align-items:center;gap:6px;
+  max-width:calc(100vw - 24px);transition:left .3s ease}
+#titlebar{display:flex;align-items:center;gap:6px;
+  background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:99px;padding:4px 14px;
+  max-width:100%}
 #titlebar input{background:transparent;border:0;border-bottom:1px dashed transparent;padding:3px 2px;font-weight:700;min-width:0;max-width:34vw;text-overflow:ellipsis}
-body.is-fac #titlebar input{border-bottom-color:rgba(255,255,255,.35)}
+body.is-fac #titlebar input{border-bottom-color:rgba(255,255,255,.18);border-radius:4px}
+body.is-fac #titlebar input:hover{border-bottom-color:rgba(255,255,255,.45)}
+body.is-fac #titlebar input:focus{background:rgba(255,255,255,.06)}
 #titlebar input[readonly]{cursor:default}
 #titlebar input::placeholder{color:var(--ui-muted);font-weight:500}
 #starIn{color:var(--star)}
 .arrow{color:var(--ui-muted)}
 
 /* phases */
-#phasebar{position:fixed;top:102px;left:50%;transform:translateX(-50%);display:flex;gap:2px;align-items:center;z-index:20;
-  background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:12px;padding:4px}
+#phasebar{background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:12px;padding:4px}
+#steps{list-style:none;margin:0;padding:0;display:flex;align-items:center}
+#steps li{display:flex;align-items:center}
+#steps .sep{width:12px;height:1px;background:var(--ui-line);flex:none}
+#steps .sep.done{background:rgba(127,214,194,.55)}
 .step{border:0;background:transparent;border-radius:9px;padding:6px 9px;font-size:13px;color:var(--ui-muted);white-space:nowrap;display:flex;gap:6px;align-items:center}
 .step .num{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:1px solid var(--ui-line)}
 .step[aria-current="step"]{background:rgba(127,214,194,.22);color:var(--ui-text);font-weight:600}
 .step[aria-current="step"] .num{background:var(--wind);color:#0b1a2c;border-color:transparent}
-.step.done .num{background:rgba(127,214,194,.3)}
+.step.done{color:var(--ui-text)}
+.step.done .num{background:rgba(127,214,194,.3);border-color:transparent;color:var(--wind)}
 body.is-fac .step{cursor:pointer}
 body.is-fac .step:hover{color:var(--ui-text)}
-#phaseHint{position:fixed;top:148px;left:50%;transform:translateX(-50%);font-size:13px;color:var(--ui-text);text-align:center;
-  background:rgba(10,20,38,.55);padding:4px 12px;border-radius:99px;z-index:19;max-width:calc(100vw - 24px)}
-#phaseHint.tip{background:rgba(255,229,154,.2);color:var(--star)}
+/* phase brief: opens at the start of every phase, minimizes to a slim bar */
+#brief{position:fixed;left:50%;top:150px;transform:translateX(-50%);width:min(600px,calc(100vw - 24px));z-index:22;
+  background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.42);
+  display:flex;flex-direction:column;max-height:calc(100vh - 250px);transition:left .3s ease}
+#brief.min{background:var(--ui-bg);backdrop-filter:blur(10px);box-shadow:0 6px 20px rgba(0,0,0,.28);border-radius:99px;width:auto;max-width:min(600px,calc(100vw - 24px))}
+.brief-head{display:flex;gap:12px;align-items:center;padding:14px 14px 10px 16px}
+#brief.min .brief-head{padding:5px 6px 5px 6px;gap:10px}
+.brief-num{width:34px;height:34px;border-radius:50%;background:var(--wind);color:#0b1a2c;font-weight:800;display:grid;place-items:center;flex:none;font-size:15px}
+#brief.min .brief-num{width:26px;height:26px;font-size:12.5px}
+.brief-titles{flex:1;min-width:0}
+.eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ui-muted)}
+#brief h2{margin:1px 0 0;font-size:20px;line-height:1.2}
+.brief-one{margin:3px 0 0;color:var(--ui-muted);font-size:13.5px}
+#brief.min .eyebrow{display:none}
+#brief.min .brief-titles{display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
+#brief.min h2{font-size:14.5px;margin:0}
+#brief.min .brief-one{margin:0;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+#briefBody{overflow:auto;padding:0 18px 6px 18px;flex:1;min-height:0}
+#brief.min #briefBody,#brief.min .brief-foot{display:none}
+#brief:not(.min) #briefMiniNext{display:none}
+.brief-foot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--ui-line);flex-wrap:wrap}
+.brief-foot .grow{flex:1}
+#brief h3{margin:14px 0 6px;font-size:13px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
+#brief p{margin:6px 0}
+.todo{list-style:none;counter-reset:t;margin:2px 0 10px;padding:0;display:grid;gap:9px}
+.todo li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45}
+.todo li::before{counter-increment:t;content:counter(t);width:21px;height:21px;border-radius:50%;border:1px solid var(--ui-line);
+  display:grid;place-items:center;font-size:11px;color:var(--ui-muted);flex:none;margin-top:0}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+.chip{font-size:12.5px;padding:3px 10px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.chip b{color:var(--ui-text);font-weight:600}
+.live-stat{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--ui-text);background:rgba(255,255,255,.07);
+  border-radius:99px;padding:4px 11px;margin:2px 0 8px}
+.tipbox{font-size:13px;color:var(--star);background:rgba(255,229,154,.12);border-radius:10px;padding:8px 10px;margin:8px 0}
+.waiting{font-size:13px;color:var(--ui-muted)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:rgba(255,255,255,.08)}
+details.share{border:0;padding:0;margin-top:6px}
+details.share summary{font-weight:500;font-size:13.5px;color:var(--ui-muted);padding:6px 0}
+ol.top{margin:4px 0 8px;padding-left:20px;font-size:13.5px}
+ol.top li{margin:3px 0}
+ol.top .v{color:var(--ui-muted);font-size:12px}
+@media (min-width:761px) and (max-width:1420px){
+  body.cards-open #voyage,body.cards-open #brief{left:calc(50% + 180px)}
+  body.cards-open #brief{width:min(560px,calc(100vw - 400px))}
+  body.cards-open #brief.min{width:auto;max-width:min(560px,calc(100vw - 400px))}
+  body.cards-open .step:not([aria-current="step"]) .nm{display:none}
+}
 
 /* panels */
 aside{position:fixed;top:64px;bottom:16px;width:340px;background:var(--ui-bg);backdrop-filter:blur(10px);
@@ -143,9 +197,9 @@ form#addForm{border-top:1px solid var(--ui-line);padding:10px;display:grid;gap:8
   background:var(--ui-bg);padding:6px 12px;border-radius:99px;z-index:12}
 
 /* center card (Dock / Harbor / Logbook) */
-#center{position:fixed;left:50%;top:56%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 24px));
-  max-height:calc(100vh - 230px);overflow:auto;background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:18px;
-  padding:18px 20px;z-index:22;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#center{position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 24px));
+  max-height:calc(100vh - 160px);overflow:auto;background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:18px;
+  padding:18px 20px;z-index:30;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 #center h2{margin:0 0 4px;font-size:19px}
 #center h3{margin:16px 0 6px;font-size:14px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
 #center .close{position:absolute;top:12px;right:12px}
@@ -205,20 +259,32 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   header{gap:8px;padding:0 12px}
   .brand{font-size:15px}
   .hide-sm{display:none!important}
-  #titlebar{top:52px;width:calc(100vw - 24px);justify-content:center}
-  #titlebar input{max-width:40vw}
+  #voyage{top:50px;width:calc(100vw - 16px);max-width:none;gap:5px}
+  #titlebar{width:100%;justify-content:center;padding:3px 10px}
+  #titlebar input{max-width:38vw}
+  #phasebar{padding:3px}
+  .step{padding:5px 7px}
+  #steps .sep{width:6px}
   .step:not([aria-current="step"]) .nm{display:none}
-  #phasebar{top:96px}
-  #phaseHint{top:142px;font-size:12px}
+  #brief{top:134px;width:calc(100vw - 16px);max-height:calc(100vh - 134px - 150px - env(safe-area-inset-bottom))}
+  #brief.min{max-width:calc(100vw - 16px)}
+  #brief.min .brief-one{display:none}
+  #brief h2{font-size:18px}
+  .brief-foot{padding:10px 12px}
+  #briefBody{padding:0 14px 6px}
+  .brief-foot .grow{display:none}
+  .brief-foot .btn.primary{flex:1 1 100%;order:3;padding:10px}
+  .brief-foot .btn:not(.primary):not(.ghost){flex:1}
+  .brief-foot .waiting{flex:1 1 100%;order:4;text-align:center}
   aside{top:auto;left:0!important;right:0!important;bottom:0;width:auto;height:64vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom)}
   aside.closed,#tunePanel.closed{transform:translateY(105%)}
-  #speedo{top:176px;bottom:auto;left:12px;transform:none;padding:6px 10px;gap:10px}
-  #speedo svg.gauge{width:64px;height:38px}
-  #speedo svg.spark{width:90px}
-  .knots{font-size:22px}
-  #speedHidden{top:176px;bottom:auto;left:12px;transform:none}
-  #toasts{top:auto;bottom:84px}
-  #center{top:auto;bottom:76px;transform:translateX(-50%);max-height:calc(100vh - 260px)}
+  #speedo{bottom:calc(70px + env(safe-area-inset-bottom));padding:5px 12px;gap:10px}
+  #speedo svg.gauge{width:58px;height:34px}
+  #speedo svg.spark{display:none}
+  .knots{font-size:21px}
+  #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
+  #toasts{top:auto;bottom:calc(132px + env(safe-area-inset-bottom))}
+  #center{top:auto;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);max-height:calc(100vh - 140px)}
   #mobileBar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;z-index:14}
   #mobileBar .btn{flex:1;padding:12px;background:var(--ui-bg);backdrop-filter:blur(10px)}
 }
@@ -298,6 +364,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
 </header>
 
+<div id="voyage">
 <div id="titlebar" role="group" aria-label="Ship and star">
   <span aria-hidden="true">⛵</span>
   <input id="shipIn" maxlength="60" aria-label="Ship name" placeholder="Name the ship">
@@ -307,11 +374,24 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 </div>
 
 <nav id="phasebar" aria-label="Retro phases">
-  <button class="btn small fac-only" id="prevPhase" aria-label="Previous phase">←</button>
-  <div id="steps" style="display:flex;gap:2px"></div>
-  <button class="btn small primary fac-only" id="nextPhase">Next →</button>
+  <ol id="steps"></ol>
 </nav>
-<div id="phaseHint" role="status"></div>
+</div>
+
+<section id="brief" aria-labelledby="briefTitle" aria-live="polite">
+  <div class="brief-head">
+    <span class="brief-num" id="briefNum" aria-hidden="true">1</span>
+    <div class="brief-titles">
+      <div class="eyebrow" id="briefEyebrow"></div>
+      <h2 id="briefTitle"></h2>
+      <p class="brief-one" id="briefOne"></p>
+    </div>
+    <button class="btn small primary fac-only" id="briefMiniNext" type="button"></button>
+    <button class="btn small ghost" id="briefToggle" type="button" aria-controls="briefBody" aria-expanded="true">Minimize</button>
+  </div>
+  <div id="briefBody"></div>
+  <div class="brief-foot" id="briefFoot"></div>
+</section>
 
 <aside id="cardsPanel" aria-label="Cards">
   <div class="panel-head">
@@ -621,6 +701,7 @@ function apply(a, local){
       if (byId(a.card.id)) return;
       S.cards.push(a.card); buildCard(a.card, true);
       if (a.by){ (S.contributors ||= {})[a.by] = 1; }
+      updateBriefStat();
       recompute(); updateCounts();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
       if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
@@ -639,21 +720,23 @@ function apply(a, local){
     }
     case "scrape": {
       const c = byId(a.cardId); if (!c || c.scraped) return;
-      c.scraped = true; recompute(); updateCard(c); renderBarnacles(); renderStars();
+      c.scraped = true; recompute(); updateCard(c); renderBarnacles(); renderStars(); renderBrief();
       plainToast(`★ New action item: ${c.text}`);
       break;
     }
     case "phase":
-      S.phase = a.phase; renderPhase(); updateAllCards(); centerDismissed = false; centerMode = null; renderCenter();
+      S.phase = a.phase; briefOpen = true; renderPhase(); updateAllCards(); centerMode = null; renderCenter();
+      if (S.phase >= 1 && S.phase <= 3 && innerWidth >= 760) setPanel("cardsPanel", true);
+      if ((S.phase === 0 || S.phase === 4) && innerWidth < 760) setPanel("cardsPanel", false);
       if (!local) announce(`Phase ${a.phase + 1}: ${PHASES[a.phase].name}, ${PHASES[a.phase].std}`);
       break;
     case "names":
       if (a.ship != null) S.ship = a.ship;
       if (a.star != null) S.star = a.star;
-      renderTitle(); renderPhase(); if (!local) renderCenter();
+      renderTitle(); renderPhase(); renderBrief();
       break;
     case "silent":
-      S.silentUntil = a.until; syncSilent(); updateAllCards();
+      S.silentUntil = a.until; syncSilent(); updateAllCards(); renderBrief();
       break;
     case "config":
       C = {...DEFAULTS, ...a.config}; team.config = C;
@@ -664,12 +747,12 @@ function apply(a, local){
     case "cards.replace":
       S.cards = a.cards; rebuildCards();
       S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = 1; });
-      if (centerOpen()) renderCenter();
+      renderCenter();
       break;
     case "starVote":
       S.starVotes ||= {};
       if (a.v) S.starVotes[a.pid] = a.v; else delete S.starVotes[a.pid];
-      if (centerOpen()) renderCenter();
+      renderCenter();
       break;
     case "rockReturned":
       S.rockReturned = a.value; renderCenter();
@@ -680,7 +763,7 @@ function apply(a, local){
       break;
     case "session.next":
       team.sessions = a.sessions; team.current = S = a.session;
-      history = []; centerDismissed = false; centerMode = null;
+      history = []; briefOpen = true; centerMode = null;
       rebuildAll();
       plainToast("New retro started at the Dock");
       break;
@@ -871,36 +954,23 @@ let nameT = null;
 function onNameInput(field){
   const inp = field === "ship" ? $("shipIn") : $("starIn");
   sizeInput(inp);
-  if (field === "star") renderPhase(inp.value);
   clearTimeout(nameT);
   nameT = setTimeout(() => dispatch({ type:"names", [field]: inp.value.trim() }), 300);
 }
 
-function renderPhase(draftStar){
+function renderPhase(){
   const steps = $("steps"); steps.innerHTML = "";
   PHASES.forEach((p, i) => {
-    const b = h("button", { class: "step" + (i < S.phase ? " done" : ""), type:"button",
-      "aria-current": i === S.phase ? "step" : null, title: `${p.name} · ${p.std}`,
-      "aria-label": `Phase ${i+1}: ${p.name} (${p.std})`, "aria-disabled": isFac() ? null : "true",
-      onclick: () => { if (!isFac()) return; if (i !== S.phase) dispatch({ type:"phase", phase: i }); else reopenPhaseCard(); } },
-      h("span", { class:"num", text: i+1 }), h("span", { class:"nm", text: p.name }));
-    steps.appendChild(b);
+    if (i) steps.appendChild(h("li", { "aria-hidden":"true" }, h("span", { class: "sep" + (i <= S.phase ? " done" : "") })));
+    const done = i < S.phase, cur = i === S.phase;
+    const b = h("button", { class: "step" + (done ? " done" : ""), type:"button",
+      "aria-current": cur ? "step" : null, title: `${p.name} · ${p.std}`,
+      "aria-label": `Step ${i+1}: ${p.name} (${p.std})${done ? ", done" : cur ? ", current" : ""}`, "aria-disabled": isFac() || cur ? null : "true",
+      onclick: () => { if (cur) return reopenPhaseCard(); if (isFac()) dispatch({ type:"phase", phase: i }); } },
+      h("span", { class:"num", text: done ? "✓" : i+1 }), h("span", { class:"nm", text: p.name }));
+    steps.appendChild(h("li", {}, b));
   });
-  $("prevPhase").disabled = S.phase === 0;
-  const atEnd = S.phase === PHASES.length - 1;
-  $("nextPhase").textContent = atEnd ? "Finish ✓" : "Next →";
-  $("nextPhase").title = atEnd ? "Open the Harbor summary to save this voyage" : "";
-  const p = PHASES[S.phase];
-  const star = draftStar ?? S.star;
-  const hint = $("phaseHint");
-  if (isFac() && star && TASK_RE.test(star.trim())){
-    hint.className = "tip";
-    hint.textContent = "Tip: word the star as an outcome, e.g. “Releases are calm and boring”, not a task.";
-  } else {
-    hint.className = "";
-    hint.textContent = `Step ${S.phase+1} of 5 · ${p.std} — ${p.hint}`;
-  }
-  // phase-dependent card UI
+  // phase-dependent card UI (cards panel)
   $("addForm").hidden = S.phase !== 1;
   $("budget").hidden = S.phase !== 2;
   const notes = [
@@ -962,6 +1032,7 @@ function updateCounts(){
   for (const t of ["wind","rock","barnacle"]) $("cnt-"+t).textContent = S.cards.filter(c=>c.type===t).length;
   const used = personVotesUsed(me.id);
   $("budget").textContent = `Your votes: ${C.VOTES_PER_PERSON - used} of ${C.VOTES_PER_PERSON} left · max ${C.MAX_VOTES_PER_CARD} per card`;
+  updateBriefStat();
 }
 function rebuildCards(){
   cardEls.clear();
@@ -1028,7 +1099,7 @@ function renderAvatars(){
 /* ================================================================
    Center card: Dock / Harbor / Logbook / Links
    ================================================================ */
-let centerMode = null, centerDismissed = false;
+let centerMode = null, briefOpen = true;
 const teamLink = () => location.href.split("#")[0] + "#/t/" + team.id;
 const facLink = () => location.href.split("#")[0] + "#/f/" + fkey;
 
@@ -1048,7 +1119,7 @@ function linksSection(){
   return [
     h("h3", { text:"Links" }),
     ...linkRow("Team link (share with everyone)", teamLink(), "Bookmark the team link: it holds your star history and past retros."),
-    isFac() ? linkRow("Facilitator link (keep private)", facLink(), "This one controls phases, names and the timer. Don't share it.") : []
+    ...(isFac() ? linkRow("Facilitator link (keep private)", facLink(), "This one controls phases, names and the timer. Don't share it.") : [])
   ];
 }
 function currentSummary(){
@@ -1179,56 +1250,140 @@ function nextStarSection(){
   out.push(inp);
   return out;
 }
-const centerOpen = () => !$("center").hidden;
-function reopenPhaseCard(){
-  if (S.phase !== 0 && S.phase !== 4) return;
-  centerMode = null; centerDismissed = false;
-  renderCenter();
+/* ================================================================
+   Phase brief: every phase opens with one. Minimize keeps a slim bar.
+   ================================================================ */
+const BRIEF = [
+  { one:"Name the ship, check last retro's star, check in.", next:"Cast off → Sail",          mini:"Cast off →" },
+  { one:"Add wind, rocks and barnacles. The boat reacts live.", next:"Close cards → Navigate", mini:"Next: Navigate →" },
+  { one:"Spend your votes on what matters most.",              next:"Lock votes → Set course", mini:"Next: Set course →" },
+  { one:"Turn the top rocks and barnacles into action items.", next:"Sail into the Harbor →",  mini:"Next: Harbor →" },
+  { one:"Check the star, set the next one, save the voyage.",  next:"Save voyage & start next retro", mini:"Save voyage" },
+];
+const chip = (type, name, meaning) => h("span", { class:"chip", style:`--c:var(--${type})` }, h("b", { text: name }), ` ${meaning}`);
+const todo = items => h("ol", { class:"todo" }, items.filter(Boolean).map(x => h("li", {}, x)));
+function briefStatText(){
+  if (S.phase === 1){ const n = S.cards.length; return `${n} card${n===1?"":"s"} so far`; }
+  if (S.phase === 2){ const left = C.VOTES_PER_PERSON - personVotesUsed(me.id); return `Your votes: ${left} of ${C.VOTES_PER_PERSON} left`; }
+  if (S.phase === 3){ const n = S.cards.filter(c => c.scraped).length; return `${n} action item${n===1?"":"s"} so far`; }
+  return "";
 }
-function renderCenter(){
-  const box = $("center"), body = $("centerBody");
-  const mode = centerMode || (centerDismissed ? null : S.phase === 0 ? "dock" : S.phase === 4 ? "harbor" : null);
-  if (!mode){ box.hidden = true; return; }
-  const keepFocus = document.activeElement && document.activeElement.id === "nextStarIn";
-  const scroll = box.scrollTop;
-  body.innerHTML = "";
+function updateBriefStat(){ const e = $("briefStat"); if (e) e.textContent = briefStatText(); }
+function briefContent(p){
   const fac = isFac();
-  if (mode === "dock"){
-    body.append(
-      h("h2", { id:"centerTitle", text:"⚓ Dock · Set the stage" }),
-      h("p", { text: fac ? "Before we cast off: name the ship, then check last retro's star together." : "We're at the dock. Vote on the star while the facilitator gets ready." }),
-      ...starCheckSection("dock"),
-      !S.star ? h("p", { class:"muted", text:"At the Harbor you'll pick one rock from this retro and set a star to beat it." }) : null,
-      h("p", { class:"muted", text:"Check-in: in one word, what was the weather like for you this sprint?" }),
-      ...linksSection(),
-      fac ? h("div", { class:"center-actions" }, h("button", { class:"btn primary", type:"button", text:"Cast off → Sail", onclick: () => dispatch({ type:"phase", phase:1 }) })) : null
-    );
-  } else if (mode === "harbor"){
-    const actions = S.cards.filter(c => c.scraped);
-    const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
-    body.append(
-      h("h2", { id:"centerTitle", text:"⚓ Harbor · Close" }),
-      h("p", { class:"muted", text: S.ship || "Unnamed ship" }),
-      C.SHOW_SPEEDOMETER ? h("p", {}, h("span", { class:"big", text:`${speed.toFixed(1)} kn` }), h("span", { class:"muted", text:` final · ${avg.toFixed(1)} kn average · mood, not the score` })) : null,
-      ...starCheckSection("harbor"),
-      ...nextStarSection(),
-      h("h3", { text:`Action items (${actions.length})` }),
-      actions.length ? h("ul", { class:"actions" }, actions.map(c => h("li", { text: c.text }))) : h("p", { class:"muted", text:"None yet. Turn rocks and barnacles into ★ in Set course." }),
-      ...logbookSection(true),
-      fac ? h("div", { class:"center-actions" },
-        h("p", { class:"muted", style:"flex:1;margin:0", text: S.nextStar && (S.nextStar.text || S.nextStar.rock) ? "The next star and its rock go to the next Dock." : "No next star picked yet. You can still save." }),
-        h("button", { class:"btn primary", type:"button", text:"Save voyage & start next retro", onclick: nextRetro })) : null
-    );
-  } else if (mode === "logbook"){
+  if (p === 0){
+    const tip = fac && S.star && TASK_RE.test(S.star.trim())
+      ? h("div", { class:"tipbox", text:"Tip: word the star as an outcome you can check, like “PR reviews done within 24 hours”, not a task." }) : null;
+    return [
+      todo([
+        fac ? "Name the ship in the top bar. Sprint name or number works well." : null,
+        S.star ? "Vote below: did we hit last retro's star?" : "No star yet. You'll set one at the Harbor, tied to a rock.",
+        "Check-in: in one word, what was the weather like for you this sprint?"
+      ]),
+      ...(S.star ? starCheckSection("dock") : []),
+      tip,
+      h("details", { class:"share" }, h("summary", { text:"Share the team link" }), ...linksSection().slice(1))
+    ];
+  }
+  if (p === 1) return [
+    h("div", { class:"legend" }, chip("wind","Wind","went well"), chip("rock","Rock","didn't go well"), chip("barnacle","Barnacle","could be better")),
+    todo([
+      "Open Cards and add as many as you like, one idea per card.",
+      "Tick “Post anonymously” for anything sensitive.",
+      "Watch the boat: wind fills the sails, rocks and barnacles slow it down."
+    ]),
+    h("span", { class:"live-stat", id:"briefStat", text: briefStatText() }),
+    fac ? h("p", { class:"muted" }, h("button", { class:"btn small", type:"button", text: silentActive() ? "End silent writing" : `Start silent writing (${C.SILENT_TIMER_MIN} min)`,
+      onclick: () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 }) }), " Names stay hidden until the timer ends.") : null
+  ];
+  if (p === 2) return [
+    todo([
+      `You have ${C.VOTES_PER_PERSON} votes, max ${C.MAX_VOTES_PER_CARD} per card. Use + and − on the cards.`,
+      "Vote for what matters most to talk about, good or bad.",
+      "Votes move the boat: voted wind speeds it up, voted rocks slow it down."
+    ]),
+    h("span", { class:"live-stat", id:"briefStat", text: briefStatText() })
+  ];
+  if (p === 3){
+    const top = problems(S.cards).filter(c => !c.scraped).sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 3);
+    return [
+      todo(fac ? [
+        "Talk through the top-voted rocks and barnacles below.",
+        "Press “Chart → ★” or “Scrape → ★” on a card to make it an action item.",
+        "Each action item lights a star in the sky."
+      ] : [
+        "Talk through the top-voted rocks and barnacles together.",
+        "The facilitator turns the ones you agree on into action items.",
+        "Each action item lights a star in the sky."
+      ]),
+      top.length ? h("div", {}, h("h3", { text:"Top problems" }), h("ol", { class:"top" }, top.map(c =>
+        h("li", {}, c.text, h("span", { class:"v", text:` · ${totalVotes(c)} vote${totalVotes(c)===1?"":"s"}` }))))) : null,
+      h("span", { class:"live-stat", id:"briefStat", text: briefStatText() })
+    ];
+  }
+  const actions = S.cards.filter(c => c.scraped);
+  const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
+  return [
+    C.SHOW_SPEEDOMETER ? h("p", {}, h("span", { class:"big", text:`${speed.toFixed(1)} kn` }), h("span", { class:"muted", text:` final · ${avg.toFixed(1)} kn average · mood, not the score` })) : null,
+    ...starCheckSection("harbor"),
+    ...nextStarSection(),
+    h("h3", { text:`Action items (${actions.length})` }),
+    actions.length ? h("ul", { class:"actions" }, actions.map(c => h("li", { text: c.text }))) : h("p", { class:"muted", text:"None this time. Turn rocks and barnacles into ★ in Set course." }),
+    ...logbookSection(true)
+  ];
+}
+function goNext(){ if (S.phase < 4) dispatch({ type:"phase", phase: S.phase + 1 }); else nextRetro(); }
+function minimizeBrief(openCards){
+  briefOpen = false; renderBrief();
+  if (openCards) setPanel("cardsPanel", true);
+}
+function renderBrief(){
+  if (!S) return;
+  const p = S.phase, d = BRIEF[p], ph = PHASES[p], fac = isFac();
+  const box = $("brief"), body = $("briefBody"), foot = $("briefFoot");
+  box.classList.toggle("min", !briefOpen);
+  $("briefNum").textContent = p + 1;
+  $("briefEyebrow").textContent = `Step ${p+1} of 5 · ${ph.std}`;
+  $("briefTitle").textContent = ph.name;
+  $("briefOne").textContent = d.one;
+  const tg = $("briefToggle");
+  tg.textContent = briefOpen ? "Minimize" : "Show brief";
+  tg.setAttribute("aria-expanded", String(briefOpen));
+  const mini = $("briefMiniNext");
+  mini.textContent = d.mini; mini.onclick = goNext;
+  if (!briefOpen){ body.innerHTML = ""; foot.innerHTML = ""; return; }
+  const keepFocus = document.activeElement && document.activeElement.id === "nextStarIn";
+  const scroll = body.scrollTop;
+  body.innerHTML = ""; body.append(...briefContent(p).filter(Boolean));
+  body.scrollTop = scroll;
+  if (keepFocus){ const i = $("nextStarIn"); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  foot.innerHTML = "";
+  const gotIt = { 1:"Add cards", 2:"Start voting", 3:"Got it" }[p];
+  foot.append(...[
+    fac && p > 0 ? h("button", { class:"btn small ghost", type:"button", text:`← ${PHASES[p-1].name}`, onclick: () => dispatch({ type:"phase", phase: p - 1 }) }) : null,
+    h("span", { class:"grow" }),
+    !fac ? h("span", { class:"waiting", text: p < 4 ? "The facilitator moves everyone on." : "The facilitator saves the voyage." }) : null,
+    gotIt ? h("button", { class: fac ? "btn" : "btn primary", type:"button", text: gotIt, onclick: () => minimizeBrief(p !== 3) }) : null,
+    fac ? h("button", { class:"btn primary", type:"button", text: d.next, onclick: goNext }) : null
+  ].filter(Boolean));
+}
+function reopenPhaseCard(){ briefOpen = true; renderBrief(); }
+$("briefToggle").onclick = () => { briefOpen = !briefOpen; renderBrief(); };
+
+/* Modal: logbook and links (opened from the header) */
+function renderCenter(){ renderBrief(); renderModal(); }
+function renderModal(){
+  const box = $("center"), body = $("centerBody");
+  if (!centerMode){ box.hidden = true; return; }
+  body.innerHTML = "";
+  if (centerMode === "logbook"){
     body.append(h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true));
-  } else if (mode === "links"){
+  } else if (centerMode === "links"){
     body.append(h("h2", { id:"centerTitle", text:"Share this retro" }), ...linksSection());
   }
   box.hidden = false;
-  box.scrollTop = scroll;
-  if (keepFocus){ const i = $("nextStarIn"); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
-$("centerClose").onclick = () => { if (centerMode) centerMode = null; else centerDismissed = true; renderCenter(); };
+$("centerClose").onclick = () => { centerMode = null; renderModal(); };
 
 function nextShipName(name){
   if (!name) return "";
@@ -1523,7 +1678,7 @@ function start(){
   speed = model.target;
   hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
   addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
-  if (innerWidth < 760) setPanel("cardsPanel", false);
+  setPanel("cardsPanel", innerWidth >= 760);
   if (!isFac() && !sget("rtw-hint-" + team.id)){ sset("rtw-hint-" + team.id, 1); plainToast("Tip: bookmark this page — the team link keeps your star history"); }
   requestAnimationFrame(frame);
 }
@@ -1533,6 +1688,7 @@ function start(){
    ================================================================ */
 function setPanel(id, open){
   $(id).classList.toggle("closed", !open);
+  if (id === "cardsPanel") document.body.classList.toggle("cards-open", !!open);
   const btn = id === "cardsPanel" ? $("cardsToggle") : $("tuneToggle");
   btn.setAttribute("aria-expanded", open);
   if (innerWidth < 760 && open) setPanel(id === "cardsPanel" ? "tunePanel" : "cardsPanel", false);
@@ -1544,23 +1700,22 @@ $("closeCards").onclick = () => setPanel("cardsPanel", false);
 $("closeTune").onclick = () => setPanel("tunePanel", false);
 $("mCards").onclick = () => togglePanel("cardsPanel");
 $("mTune").onclick = () => togglePanel("tunePanel");
-const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderCenter(); };
+const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
 $("logBtn").onclick = openLog; $("mLog").onclick = openLog;
 $("copyLink").onclick = async () => {
   if (await copy(teamLink(), $("copyLink"))) plainToast("Team link copied. Bookmark it to keep your star history.");
-  else { centerMode = "links"; renderCenter(); }
+  else { centerMode = "links"; renderModal(); }
 };
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   setPanel("tunePanel", false);
   if (innerWidth < 760) setPanel("cardsPanel", false);
   if (!$("center").hidden) $("centerClose").click();
+  else if (briefOpen && !e.target.closest("input,textarea")){ briefOpen = false; renderBrief(); }
 });
 
 $("shipIn").oninput = () => onNameInput("ship");
 $("starIn").oninput = () => onNameInput("star");
-$("prevPhase").onclick = () => S.phase > 0 && dispatch({ type:"phase", phase: S.phase - 1 });
-$("nextPhase").onclick = () => { if (S.phase < 4) dispatch({ type:"phase", phase: S.phase + 1 }); else reopenPhaseCard(); };
 
 $("addForm").onsubmit = e => {
   e.preventDefault();
