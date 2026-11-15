@@ -145,6 +145,14 @@ ul.cards{list-style:none;margin:0;padding:0 0 6px}
 .vote .n{min-width:52px;text-align:center;color:var(--ui-text)}
 .scrape{font-size:12px}
 .card.back{background:rgba(240,138,126,.1)}
+.warn{color:var(--barnacle);font-size:13.5px;margin:4px 0}
+.warn-t{color:var(--barnacle)}
+.owner-sel{padding:4px 6px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.3);color:var(--ui-text);max-width:170px}
+.owner-l{display:flex;gap:6px;align-items:center}
+ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
+.prev-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,.06);border-radius:10px;padding:7px 10px;font-size:14px}
+.prev-item .grow{flex:1;min-width:160px}
+.prev-item .votebar{margin:0}
 .back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
@@ -651,6 +659,8 @@ function stepSpeed(v, target, dt){
    star      = the goal checked in THIS retro (set at the previous Harbor)
    starRock  = the rock/barnacle text that star was meant to remove
    nextStar  = { rockId, rock, text } picked at this Harbor for the next retro
+   prevActions = [{ id, text, owner, done: null|true|false }] last retro's action items
+   card.owner  = crew name owning the action item (card.scraped = it is an action item)
    ================================================================ */
 const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
 let reduced = reducedMQ.matches;
@@ -667,8 +677,8 @@ let speed = 0;
 let history = [];
 let bc = null;
 
-function newSession({ ship = "", star = "", starRock = null } = {}){
-  return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {},
+function newSession({ ship = "", star = "", starRock = null, prevActions = [] } = {}){
+  return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {}, prevActions,
     phase: 0, phaseStartedAt: 0, phaseMinutes: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
 }
 const byId = id => S.cards.find(c => c.id === id);
@@ -776,6 +786,18 @@ function apply(a, local){
       const c = byId(a.cardId); if (!c || c.scraped) return;
       c.scraped = true; recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
       plainToast(`★ New action item: ${c.text}`);
+      break;
+    }
+    case "owner": {
+      const c = byId(a.cardId); if (!c || !c.scraped) return;
+      c.owner = a.owner || null;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      if (c.owner) plainToast(`${c.owner} owns: ${c.text}`);
+      break;
+    }
+    case "prevAction.mark": {
+      const x = (S.prevActions || []).find(p => p.id === a.id); if (!x) return;
+      x.done = a.done; renderStage();
       break;
     }
     case "notSame": {
@@ -1450,7 +1472,7 @@ function stageStat(p){
   return "";
 }
 function stageContent(p){
-  if (p === 0) return [h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+  if (p === 0) return [...prevActionsSection(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
     h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
   if (p === 1){
     const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
@@ -1462,7 +1484,8 @@ function stageContent(p){
       h("ul", { class:"cards" }, cards.map(c => tile(c, "vote"))));
   });
   const acts = S.cards.filter(c => c.scraped);
-  const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
+  const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c, p === 3 ? "owner" : "action"))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
+  const noOwner = acts.filter(c => !c.owner).length;
   if (p === 3){
     // Returning rocks always come first (all of them), then the most voted problems up to TOP_N
     const open = problems(S.cards).filter(c => !c.scraped), byVotes = (a, b) => totalVotes(b) - totalVotes(a);
@@ -1473,7 +1496,23 @@ function stageContent(p){
       h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
     ];
   }
-  return [h("h3", { class:"col-h", text:"★ Action items" }), actList];
+  return [h("h3", { class:"col-h", text:"★ Action items" }),
+    noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Go back to Set course to pick one." : "Unowned actions rarely get done."}` }) : null,
+    actList];
+}
+/* Last retro's action items: the facilitator marks Done / Not done, everyone sees it */
+function prevActionsSection(){
+  const list = S.prevActions || [];
+  if (!list.length) return [];
+  return [h("h3", { text:"Last retro's action items" }), h("ul", { class:"prev" }, list.map(x => h("li", { class:"prev-item" },
+    h("span", { class:"grow" }, x.text, h("span", { class:"muted", text: x.owner ? ` · ${x.owner}` : " · no owner" })),
+    isFac()
+      ? h("span", { class:"votebar", role:"group", "aria-label":`Result: ${x.text}` },
+          h("button", { class:"btn small", type:"button", "data-fk":"pd" + x.id, "aria-pressed": String(x.done === true), text:"Done",
+            onclick: () => dispatch({ type:"prevAction.mark", id: x.id, done: x.done === true ? null : true }) }),
+          h("button", { class:"btn small", type:"button", "data-fk":"pn" + x.id, "aria-pressed": String(x.done === false), text:"Not done",
+            onclick: () => dispatch({ type:"prevAction.mark", id: x.id, done: x.done === false ? null : false }) }))
+      : h("span", { class: "badge inline " + (x.done === true ? "ok" : x.done === false ? "bad" : "neutral"), text: x.done === true ? "Done" : x.done === false ? "Not done" : "Not checked yet" }))))];
 }
 function tile(c, mode){
   const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
@@ -1492,6 +1531,18 @@ function tile(c, mode){
       h("button", { type:"button", "data-fk":"m" + c.id, "aria-label":`Remove my vote: ${c.text}`, text:"−", disabled: !mine, onclick: () => myVote(c.id, -1) }),
       h("span", { class:"n", text: mine ? `${total} · ${mine} mine` : String(total) }),
       h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
+  } else if (mode === "owner" || mode === "action"){
+    if (mode === "owner" && isFac()){
+      const names = [...new Set(people().map(x => x.name).filter(Boolean))];
+      if (c.owner && !names.includes(c.owner)) names.push(c.owner);
+      const sel = h("select", { class:"owner-sel", "data-fk":"o" + c.id, "aria-label":`Owner: ${c.text}` },
+        h("option", { value:"", text:"No owner" }), names.map(n => h("option", { value:n, text:n })));
+      sel.value = c.owner || "";
+      sel.onchange = () => dispatch({ type:"owner", cardId: c.id, owner: sel.value || null });
+      meta.append(h("label", { class:"owner-l" }, "Owner ", sel));
+    } else {
+      meta.append(c.owner ? h("span", { text:`Owner: ${c.owner}` }) : h("span", { class:"warn-t", text:"⚠ No owner" }));
+    }
   } else {
     meta.append(h("span", { text: plural(total, "vote") }));
     if (isFac()) meta.append(h("button", { class:"btn small", type:"button", text:"★ Action item", onclick: () => dispatch({ type:"scrape", cardId: c.id }) }));
@@ -1535,7 +1586,8 @@ function nextRetro(){
   const summary = currentSummary();
   const ns = S.nextStar || {};
   const star = ns.text || (ns.rock ? `“${ns.rock}” stays gone` : "");
-  const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null });
+  const prevActions = S.cards.filter(c => c.scraped).map(c => ({ id: c.id, text: c.text, owner: c.owner || null, done: null }));
+  const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null, prevActions });
   dispatch({ type:"session.next", sessions: [...team.sessions, summary], session });
 }
 
