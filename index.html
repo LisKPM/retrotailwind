@@ -130,6 +130,10 @@ ol.top .v{color:var(--ui-muted);font-size:12px}
   body.cards-open .step:not([aria-current="step"]) .nm{display:none}
 }
 
+/* simple mode: no phases, just cards */
+body.simple #phasebar,body.simple #brief{display:none!important}
+body.simple #toasts{top:110px}
+
 /* panels */
 aside{position:fixed;top:64px;bottom:16px;width:340px;background:var(--ui-bg);backdrop-filter:blur(10px);
   border:1px solid var(--ui-line);border-radius:var(--radius);display:flex;flex-direction:column;z-index:15;
@@ -573,6 +577,11 @@ const PARAMS = [
   ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
 ];
 let C = {...DEFAULTS};
+/* SIMPLE mode: phases are switched off. Cards can be added and voted on any time,
+   and every card and vote moves the boat. Set to false to bring the 5 steps back. */
+const SIMPLE = true;
+const canAddCards = () => SIMPLE || S.phase === 1;
+const canVoteNow = () => SIMPLE || S.phase === 2;
 
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
@@ -972,8 +981,13 @@ function renderPhase(){
     steps.appendChild(h("li", {}, b));
   });
   // phase-dependent card UI (cards panel)
-  $("addForm").hidden = S.phase !== 1;
-  $("budget").hidden = S.phase !== 2;
+  $("addForm").hidden = !canAddCards();
+  $("budget").hidden = !canVoteNow();
+  if (SIMPLE){
+    $("phaseNote").textContent = "🌬 Wind speeds the boat up. 🪨 Rocks and 🐚 barnacles slow it down. Vote on a card to make it count more.";
+    $("phaseNote").hidden = false;
+    return;
+  }
   const notes = [
     "Cards open when the facilitator sets sail.",
     "",
@@ -1018,7 +1032,7 @@ function buildCard(c, animateIn){
 }
 function updateCard(c){
   const r = cardEls.get(c.id); if (!r) return;
-  const total = totalVotes(c), mine = c.votes[me.id] || 0, voting = S.phase === 2;
+  const total = totalVotes(c), mine = c.votes[me.id] || 0, voting = canVoteNow();
   r.author.textContent = authorLabel(c);
   r.n.textContent = `${total} vote${total===1?"":"s"}${mine ? ` · ${mine} mine` : ""}`;
   r.n.title = `Weight ×${weight(c).toFixed(2)}`;
@@ -1026,7 +1040,7 @@ function updateCard(c){
   r.minus.disabled = !mine;
   r.plus.disabled = mine >= C.MAX_VOTES_PER_CARD || personVotesUsed(me.id) >= C.VOTES_PER_PERSON;
   r.li.classList.toggle("scraped", !!c.scraped);
-  if (r.scrape) r.scrape.hidden = !!c.scraped || !(isFac() && S.phase === 3);
+  if (r.scrape) r.scrape.hidden = SIMPLE || !!c.scraped || !(isFac() && S.phase === 3);
 }
 function updateAllCards(){ S.cards.forEach(updateCard); updateCounts(); }
 function updateCounts(){
@@ -1044,7 +1058,7 @@ function rebuildCards(){
 
 /* Actions from this person */
 function myVote(cardId, delta){
-  const c = byId(cardId); if (!c || S.phase !== 2) return;
+  const c = byId(cardId); if (!c || !canVoteNow()) return;
   if (!canVote(c, me.id, delta)) return;
   dispatch({ type:"vote", cardId, pid: me.id, delta });
 }
@@ -1421,6 +1435,16 @@ function makeCard(type, text, author, authorName, anonymous){
 function simStep(){
   if (!sims.length) return;
   const p = pick(sims);
+  if (SIMPLE){
+    if (!S.cards.length || Math.random() < .5){
+      const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
+      dispatch({ type:"card.add", by: p.id, card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
+    } else {
+      const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
+      if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
+    }
+    return;
+  }
   if (S.phase === 0 && S.star){
     if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
   } else if (S.phase === 1){
@@ -1439,7 +1463,7 @@ function toggleSim(){
   const on = !simTimer;
   $("simBtn").setAttribute("aria-pressed", on);
   $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
-  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (!SIMPLE && S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
   else { clearTimeout(simTimer); simTimer = null; ensureSims(0); }
 }
 function loadExample(){
@@ -1594,7 +1618,7 @@ function sample(){
   const cutoff = Date.now() - C.HISTORY_MINUTES * 60000;
   while (history.length && history[0].t < cutoff) history.shift();
   // Facilitator writes the session's speed history (one writer, every 5 s)
-  if (isFac() && S.phase > 0 && S.phase < 4 && ++sampleN % 5 === 0){
+  if (isFac() && (SIMPLE || (S.phase > 0 && S.phase < 4)) && ++sampleN % 5 === 0){
     S.history.push({ t: Date.now(), v: +speed.toFixed(2) });
     if (S.history.length > 3000) S.history.shift();
     persist();
@@ -1671,6 +1695,7 @@ function rebuildAll(){
 }
 function start(){
   document.body.classList.toggle("is-fac", isFac());
+  document.body.classList.toggle("simple", SIMPLE);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
   try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
@@ -1720,7 +1745,7 @@ $("starIn").oninput = () => onNameInput("star");
 
 $("addForm").onsubmit = e => {
   e.preventDefault();
-  if (S.phase !== 1) return;
+  if (!canAddCards()) return;
   const text = $("cardText").value.trim(); if (!text) return;
   const type = new FormData(e.target).get("type");
   dispatch({ type:"card.add", by: me.id, card: makeCard(type, text, me.id, me.name, $("anon").checked) });
