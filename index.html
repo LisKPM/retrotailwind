@@ -538,7 +538,7 @@ const DEFAULTS = {
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
   MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, MAX_ROCK_SPRITES: 8, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
-  SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15,
+  SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15, SIM_QUIET_RATE: 0.15,
   SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
 const PARAMS = [
@@ -582,8 +582,9 @@ const PARAMS = [
   ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
   ["Simulation (fake data)"],
   ["SIM_PEOPLE","Simulated people",1,40,1,""],
-  ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Cards in Sail, votes in Navigate"],
+  ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Cards in Sail, votes in Navigate, owners in Set course"],
   ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
+  ["SIM_QUIET_RATE","Quiet people",0,1,.05,"Share who add no cards and few votes"],
 ];
 let C = {...DEFAULTS};
 /* Teams saved before crew energy stored the old speed model's values (BASE_DRIFT 2 etc).
@@ -1793,6 +1794,7 @@ function ensureSims(n){
     const i = sims.length;
     sims.push({ id: "sim" + i, name: NAMES[i % NAMES.length] + (i >= NAMES.length ? " " + (1 + Math.floor(i/NAMES.length)) : ""), color: COLORS[i % COLORS.length] });
   }
+  for (const x of sims) if (!simPlan.has(x.id)) simPlan.set(x.id, planFor());
   sims.length = Math.min(sims.length, n);
   renderAvatars(); hello();
 }
@@ -1805,18 +1807,45 @@ function markReturning(card){
   if (r) card.returned = r;
   return card;
 }
+/* Each simulated person has a habit: quiet ones add nothing and vote a little,
+   most add 1 to 3 cards, a few add many. So voices, votes and balance vary like a real room. */
+const simPlan = new Map();
+function planFor(){
+  const r = Math.random();
+  if (r < C.SIM_QUIET_RATE) return { cards: 0, votes: Math.floor(Math.random() * 3) };
+  if (r < .8) return { cards: 1 + Math.floor(Math.random() * 3), votes: C.VOTES_PER_PERSON };
+  if (r < .93) return { cards: 4 + Math.floor(Math.random() * 3), votes: C.VOTES_PER_PERSON };
+  return { cards: 8 + Math.floor(Math.random() * 5), votes: C.VOTES_PER_PERSON };
+}
 function simStep(){
-  if (!sims.length) return;
-  const p = pick(sims);
+  if (!sims.length) return false;
   if (S.phase === 0 && S.star){
-    if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
+    const p = sims.find(x => !(S.starVotes || {})[x.id]); if (!p) return false;
+    dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
   } else if (S.phase === 1){
-    const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
+    const want = sims.filter(x => (S.contributors[x.id] || 0) < (simPlan.get(x.id) || { cards: 0 }).cards);
+    if (!want.length) return false;
+    const p = pick(want), r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
     dispatch({ type:"card.add", by: p.id, card: markReturning(makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE)) });
   } else if (S.phase === 2 && S.cards.length){
-    const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
-    if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
-  }
+    const want = sims.filter(x => personVotesUsed(x.id) < Math.min(C.VOTES_PER_PERSON, (simPlan.get(x.id) || { votes: 0 }).votes));
+    if (!want.length) return false;
+    const p = pick(want);
+    // people vote on problems a bit more than on wins
+    const pool = Math.random() < .65 && problems(S.cards).length ? problems(S.cards) : S.cards;
+    const c = pick(pool);
+    if (canVote(c, p.id, 1)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta: 1 });
+  } else if (S.phase === 3){
+    // Facilitator's simulation: owners first, then new action items up to the target
+    const acts = S.cards.filter(c => c.scraped), loose = acts.find(c => !c.owner);
+    if (loose && Math.random() < .85) dispatch({ type:"owner", cardId: loose.id, owner: pick(sims).name });
+    else if (acts.length < C.ACTIONS_TARGET){
+      const open = problems(S.cards).filter(c => !c.scraped).sort((a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0) || totalVotes(b) - totalVotes(a));
+      if (!open.length) return false;
+      dispatch({ type:"scrape", cardId: open[0].id });
+    } else if (!loose) return false;
+  } else return false;
+  return true;
 }
 function scheduleSim(){
   const base = 60000 / C.SIM_ACTIONS_PER_MIN;
@@ -1826,8 +1855,8 @@ function toggleSim(){
   const on = !simTimer;
   $("simBtn").setAttribute("aria-pressed", on);
   $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
-  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
-  else { clearTimeout(simTimer); simTimer = null; ensureSims(0); }
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail, vote in Navigate and own actions in Set course" : "Simulated people add cards in Sail, vote in Navigate and own actions in Set course"); }
+  else { clearTimeout(simTimer); simTimer = null; ensureSims(0); simPlan.clear(); }
 }
 function loadExample(){
   ensureSims(Math.max(sims.length, 8));
