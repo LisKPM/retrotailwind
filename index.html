@@ -178,7 +178,12 @@ ul.cards{list-style:none;margin:0;padding:0 0 6px}
 .knots small{font-size:13px;font-weight:500;color:var(--ui-muted)}
 .band{font-size:12px;color:var(--ui-muted)}
 #speedHidden{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:13px;color:var(--ui-muted);
-  background:var(--ui-bg);padding:6px 12px;border-radius:99px;z-index:12}
+  background:var(--ui-bg);padding:6px 8px 6px 12px;border-radius:99px;z-index:12;display:flex;align-items:center;gap:8px}
+.sea-word{color:var(--ui-text);font-weight:600}
+.help-btn{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700}
+#helpPanel{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);width:min(380px,calc(100vw - 24px));z-index:26;
+  background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:var(--radius);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.help-list{margin:0;padding:10px 16px 14px 32px;display:grid;gap:7px;font-size:14px}
 
 /* center card (Dock / Harbor / Logbook) */
 #center{position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 24px));
@@ -260,6 +265,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   #speedo svg.spark{display:none}
   .knots{font-size:21px}
   #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
+  #helpPanel{bottom:calc(134px + env(safe-area-inset-bottom))}
   #center{top:auto;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);max-height:calc(100vh - 140px)}
   #toasts{top:8px;right:8px;left:8px;max-width:none;justify-items:center}
   #mobileBar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;z-index:14}
@@ -383,13 +389,27 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   </svg>
   <div>
     <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
-    <div class="band" id="band">Becalmed</div>
+    <div class="band"><span id="band">Becalmed</span> · Sea <b class="sea-word" data-sea>Calm</b></div>
   </div>
+  <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button>
   <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
     <polyline id="spark" fill="none" stroke="var(--wind)" stroke-width="2" stroke-linejoin="round"/>
   </svg>
 </div>
-<div id="speedHidden" hidden>Speed hidden by facilitator</div>
+<div id="speedHidden" hidden>Speed hidden by facilitator · Sea <b class="sea-word" data-sea>Calm</b>
+  <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button></div>
+
+<div id="helpPanel" role="dialog" aria-labelledby="helpTitle" hidden>
+  <div class="panel-head"><h2 id="helpTitle">How the ship works</h2>
+    <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
+  <ul class="help-list">
+    <li><b>Speed</b> = how much of the crew is taking part: cards, votes and owned action items.</li>
+    <li><b>Sea</b> = how the sprint felt. Rocks make it rough, wind calms it.</li>
+    <li><b>Rocks clear</b> when someone owns an action for them.</li>
+    <li>A <b>darker rock</b> is a problem that came back.</li>
+    <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
+  </ul>
+</div>
 
 <section id="center" aria-labelledby="centerTitle" hidden>
   <button class="btn small close" id="centerClose" aria-label="Close">✕</button>
@@ -1125,7 +1145,13 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); }
+function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); renderSeaWord(); }
+let seaShown = "";
+function renderSeaWord(){
+  if (model.sea.word === seaShown) return;
+  seaShown = model.sea.word;
+  document.querySelectorAll("[data-sea]").forEach(e => e.textContent = seaShown);
+}
 
 /* ================================================================
    Toasts + live region
@@ -1832,8 +1858,18 @@ $("copyLink").onclick = async () => {
   if (await copy(teamLink(), $("copyLink"))) plainToast("Team link copied. Bookmark it to keep your star history.");
   else { centerMode = "links"; renderModal(); }
 };
+let helpOpener = null;
+function setHelp(open, opener){
+  $("helpPanel").hidden = !open;
+  document.querySelectorAll(".help-btn").forEach(b => b.setAttribute("aria-expanded", String(open)));
+  if (open){ helpOpener = opener || null; $("helpClose").focus(); }
+  else if (helpOpener){ helpOpener.focus(); helpOpener = null; }
+}
+document.querySelectorAll(".help-btn").forEach(b => b.onclick = () => setHelp($("helpPanel").hidden, b));
+$("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
+  if (!$("helpPanel").hidden){ setHelp(false); return; }
   setPanel("tunePanel", false);
   if (!$("center").hidden) $("centerClose").click();
 });
