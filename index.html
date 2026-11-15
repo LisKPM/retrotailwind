@@ -28,9 +28,8 @@ a{color:var(--wind)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body:not(.is-fac) .fac-only{display:none!important}
 
-#scene{position:fixed;top:0;left:0;width:100%;height:100%;display:block;transition:height .5s ease}
-/* while cards are on screen the sea lifts up so the ship, rocks, wind and barnacles stay visible */
-body.scene-up #scene{height:58vh}
+/* the sea sits in the top part of the screen so the ship, rocks, wind and barnacles are never covered */
+#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block}
 
 /* top bar */
 header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;
@@ -53,20 +52,9 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 .btn.primary:disabled:hover{background:var(--wind)}
 #silentChip{font-size:13px;padding:4px 10px;border-radius:99px;background:rgba(255,229,154,.2);color:var(--star)}
 
-/* ship → star title */
-#voyage{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:21;display:flex;flex-direction:column;align-items:center;gap:6px;
-  max-width:calc(100vw - 24px);transition:left .3s ease}
-#titlebar{display:flex;align-items:center;gap:6px;
-  background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:99px;padding:4px 14px;
-  max-width:100%}
-#titlebar input{background:transparent;border:0;border-bottom:1px dashed transparent;padding:3px 2px;font-weight:700;min-width:0;max-width:34vw;text-overflow:ellipsis}
-body.is-fac #titlebar input{border-bottom-color:rgba(255,255,255,.18);border-radius:4px}
-body.is-fac #titlebar input:hover{border-bottom-color:rgba(255,255,255,.45)}
-body.is-fac #titlebar input:focus{background:rgba(255,255,255,.06)}
-#titlebar input[readonly]{cursor:default}
-#titlebar input::placeholder{color:var(--ui-muted);font-weight:500}
-#starIn{color:var(--star)}
-.arrow{color:var(--ui-muted)}
+/* steps sit in the top bar */
+#voyage{display:flex;justify-content:center;min-width:0}
+@media (max-width:1180px){ .step:not([aria-current="step"]) .nm{display:none} }
 
 /* phases */
 #phasebar{background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:12px;padding:4px}
@@ -90,9 +78,12 @@ body.is-fac .step:hover{color:var(--ui-text)}
 /* stage: one simple screen per step */
 #stage{position:fixed;left:50%;transform:translateX(-50%);z-index:16;background:var(--ui-bg-solid);border:1px solid var(--ui-line);
   border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden}
-#stage.st-dock,#stage.st-harbor{top:152px;width:min(480px,calc(100vw - 24px));max-height:calc(100vh - 252px)}
-#stage.st-sail{bottom:104px;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 260px)}
-#stage.st-nav,#stage.st-course{bottom:104px;max-height:calc(42vh - 44px);width:min(1100px,calc(100vw - 32px));background:rgba(14,27,48,.95)}
+#stage{bottom:104px;max-height:calc(42vh - 30px)}
+#stage.st-dock,#stage.st-harbor{width:min(520px,calc(100vw - 24px))}
+.ship-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;margin:4px 0 6px}
+.ship-row input{flex:1;max-width:240px;padding:7px 10px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);color:var(--ui-text)}
+#stage.st-sail{width:min(620px,calc(100vw - 24px))}
+#stage.st-nav,#stage.st-course{width:min(1100px,calc(100vw - 32px));background:rgba(14,27,48,.95)}
 .stage-head{display:flex;align-items:baseline;gap:12px;padding:14px 18px 8px}
 .stage-head h2{margin:0;font-size:20px}
 .stage-stat{color:var(--ui-muted);font-size:13.5px}
@@ -108,7 +99,8 @@ body.is-fac .step:hover{color:var(--ui-text)}
 .col-h{display:flex;align-items:center;gap:8px;color:var(--ui-text)!important;font-size:14px!important}
 .crew{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
 .crew-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:3px 10px 3px 7px;border-radius:99px;background:rgba(255,255,255,.07)}
-.plan{display:grid;gap:6px;margin:2px 0 12px}
+.plan{margin:2px 0 8px}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
 .plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
 .min-wrap{color:var(--ui-muted);font-size:13px;white-space:nowrap}
 .min-in{width:58px;padding:5px 7px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right;color:var(--ui-text)}
@@ -249,16 +241,12 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   header{gap:8px;padding:0 12px}
   .brand{font-size:15px}
   .hide-sm{display:none!important}
-  #voyage{top:50px;width:calc(100vw - 16px);max-width:none;gap:5px}
-  #titlebar{width:100%;justify-content:center;padding:3px 10px}
-  #titlebar input{max-width:38vw}
+  #voyage{position:fixed;top:50px;left:8px;right:8px}
   #phasebar{padding:3px}
   .step{padding:5px 7px}
   #steps .sep{width:6px}
   .step:not([aria-current="step"]) .nm{display:none}
-  #stage.st-dock,#stage.st-harbor{top:132px;width:calc(100vw - 16px);max-height:calc(100vh - 132px - 126px - env(safe-area-inset-bottom))}
-  #stage.st-nav,#stage.st-course{bottom:calc(126px + env(safe-area-inset-bottom));max-height:calc(42vh - 70px);width:calc(100vw - 16px)}
-  #stage.st-sail{bottom:calc(126px + env(safe-area-inset-bottom));width:calc(100vw - 16px)}
+  #stage{bottom:calc(126px + env(safe-area-inset-bottom));max-height:calc(42vh - 50px);width:calc(100vw - 16px)!important}
   .board,.course{grid-template-columns:1fr}
   .stage-head{padding:12px 14px 6px}
   .stage-body{padding:0 14px 10px}
@@ -330,8 +318,8 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
       <line x1="2" y1="-24" x2="-146" y2="-24" stroke="#5a4636" stroke-width="5" stroke-linecap="round"/>
       <path d="M-150,-6 L178,-10 Q140,52 92,62 L-112,62 Q-146,40 -150,-6 Z" fill="#b5523f"/>
       <path d="M-150,-6 L178,-10 L172,2 L-148,6 Z" fill="#f5ead6"/>
-      <path d="M-140,26 L150,22" stroke="#8f3d2f" stroke-width="3" opacity=".6"/>
       <g id="barnacles"></g>
+      <text id="hullName" x="12" y="38" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
     </g>
   </g>
   <g id="splashes"></g>
@@ -344,25 +332,19 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   <span class="role hide-sm" id="roleChip"></span>
   <span id="silentChip" role="status" hidden></span>
   <div class="spacer"></div>
+  <div id="voyage">
+  <nav id="phasebar" aria-label="Retro phases">
+    <ol id="steps"></ol>
+    <span id="timer" role="timer" hidden></span>
+  </nav>
+  </div>
+  <div class="spacer"></div>
   <div id="avatars" aria-label="People in the room"></div>
   <button class="btn" id="copyLink">Copy team link</button>
   <button class="btn hide-sm" id="logBtn" hidden>Logbook</button>
   <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
 </header>
 
-<div id="voyage">
-<div id="titlebar" role="group" aria-label="Ship and star">
-  <span aria-hidden="true">⛵</span>
-  <input id="shipIn" maxlength="60" aria-label="Ship name" placeholder="Name the ship">
-  <span hidden><!-- star: left out for now -->
-  <input id="starIn" maxlength="90" aria-label="Star: the team improvement goal" placeholder="Name the star"></span>
-</div>
-
-<nav id="phasebar" aria-label="Retro phases">
-  <ol id="steps"></ol>
-  <span id="timer" role="timer" hidden></span>
-</nav>
-</div>
 
 <section id="stage" aria-labelledby="stageTitle"></section>
 
@@ -890,23 +872,19 @@ function rockFx(){
 /* ================================================================
    UI: title (ship → star) and phases
    ================================================================ */
-function sizeInput(inp){ inp.size = Math.max(10, Math.min(40, (inp.value || inp.placeholder).length + 1)); }
 function renderTitle(){
-  const fac = isFac();
-  for (const [inp, val, empty] of [[$("shipIn"), S.ship, "Ship not named yet"], [$("starIn"), S.star, "Star not named yet"]]){
-    inp.readOnly = !fac;
-    inp.placeholder = fac ? (inp.id === "shipIn" ? "Name the ship" : "Name the star (team goal)") : empty;
-    if (document.activeElement !== inp) inp.value = val;
-    sizeInput(inp);
-  }
-  $("starIn").title = S.star ? `Our star (team improvement goal): ${S.star}` : "The team improvement goal";
+  const t = $("hullName");
+  t.removeAttribute("textLength"); t.removeAttribute("lengthAdjust");
+  t.textContent = S.ship || "";
+  try { if (S.ship && t.getComputedTextLength() > 220){ t.setAttribute("textLength", 220); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch {}
+  const inp = $("shipName");
+  if (inp && document.activeElement !== inp) inp.value = S.ship || "";
+  document.title = `${S.ship || team.name} · RetroTailWind`;
 }
 let nameT = null;
-function onNameInput(field){
-  const inp = field === "ship" ? $("shipIn") : $("starIn");
-  sizeInput(inp);
+function onShipInput(inp){
   clearTimeout(nameT);
-  nameT = setTimeout(() => dispatch({ type:"names", [field]: inp.value.trim() }), 300);
+  nameT = setTimeout(() => dispatch({ type:"names", ship: inp.value.trim() }), 300);
 }
 
 function renderPhase(){
@@ -1166,8 +1144,6 @@ function renderStage(force){
 function buildStage(p){
   const fac = isFac();
   stage.className = "st-" + PHASES[p].key;
-  document.body.classList.toggle("scene-up", p >= 1 && p <= 3);
-  setTimeout(layoutConstellation, 550);
   stage.innerHTML = "";
   const body = h("div", { class:"stage-body" });
   if (p === 0 && fac) body.append(planEditor());
@@ -1183,12 +1159,16 @@ function buildStage(p){
           : h("span", { class:"waiting", text: p === 0 ? "Waiting to cast off" : "The facilitator moves everyone on" })));
 }
 function planEditor(){
-  return h("div", { class:"plan" }, h("h3", { text:"Minutes per step" }), [1,2,3,4].map(p => {
+  const ship = h("input", { id:"shipName", maxlength:40, placeholder:"e.g. Sprint 24", value: S.ship || "", autocomplete:"off" });
+  ship.oninput = () => onShipInput(ship);
+  return h("div", { class:"plan" },
+    h("div", { class:"ship-row" }, h("label", { for:"shipName", text:"Ship name" }), ship),
+    h("h3", { text:"Minutes per step" }), h("div", { class:"plan-grid" }, [1,2,3,4].map(p => {
     const key = STEP_MIN_KEYS[p], id = "min-" + p;
     const inp = h("input", { type:"number", id, class:"min-in", min:1, max:60, step:1, value: C[key], "data-key": key });
     inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; pushConfig(); };
     return h("div", { class:"plan-row" }, h("label", { for:id, text: PHASES[p].name }), h("span", { class:"min-wrap" }, inp, " min"));
-  }));
+  })));
 }
 function composer(){
   const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name, ico]) => {
@@ -1619,8 +1599,6 @@ document.addEventListener("keydown", e => {
   if (!$("center").hidden) $("centerClose").click();
 });
 
-$("shipIn").oninput = () => onNameInput("ship");
-$("starIn").oninput = () => onNameInput("star");
 
 $("simBtn").onclick = toggleSim;
 $("silentBtn").onclick = () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 });
