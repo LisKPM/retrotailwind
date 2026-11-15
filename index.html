@@ -212,7 +212,11 @@ table.log{width:100%;border-collapse:collapse;font-size:13px}
 table.log th,table.log td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--ui-line);vertical-align:top}
 table.log th{color:var(--ui-muted);font-weight:500}
 .bar{height:6px;border-radius:3px;background:var(--wind);margin-top:4px}
-ul.actions{margin:4px 0;padding-left:20px}
+ul.actions{margin:4px 0;padding-left:20px;font-size:13px}
+.health-wrap{overflow-x:auto;margin:4px 0 8px}
+table.health th small{display:block;color:var(--ui-muted);font-weight:400;font-size:11px}
+table.health td{white-space:normal;min-width:84px}
+td.warn-c{color:var(--rock)}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:6px 0 12px}
 .stat{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 10px}
 .stat span{display:block;font-size:12px;color:var(--ui-muted)}
@@ -359,7 +363,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   <div class="spacer"></div>
   <div id="avatars" aria-label="People in the room"></div>
   <button class="btn" id="copyLink">Copy team link</button>
-  <button class="btn hide-sm" id="logBtn" hidden>Logbook</button>
+  <button class="btn hide-sm" id="logBtn">Logbook</button>
   <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
 </header>
 
@@ -451,7 +455,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 <div id="live" class="sr-only" aria-live="polite"></div>
 
 <nav id="mobileBar" aria-label="Panels">
-  <button class="btn" id="mLog" hidden>Logbook</button>
+  <button class="btn" id="mLog">Logbook</button>
   <button class="btn fac-only" id="mTune">Tune</button>
 </nav>
 
@@ -732,6 +736,35 @@ function participationOf(s = S){
   const added = Object.values(s.contributors || {}).filter(n => n > 0).length;
   return { added, present: Math.max(added, people().length) };
 }
+/* RETRO HEALTH (pure — becomes lib/health.ts). Passive: only from what people already did.
+   Never combined into one score. roomNow = people in the room right now. */
+function retroHealth(s, cfg = C, roomNow = 0){
+  const counts = Object.values(s.contributors || {}).filter(n => n > 0);
+  const added = counts.length, cardsCounted = counts.reduce((a, b) => a + b, 0);
+  const present = Math.max(added, s.peakPresent || 0, roomNow);
+  const votesCast = s.cards.reduce((a, c) => a + totalVotes(c), 0);
+  const acts = s.cards.filter(c => c.scraped);
+  const prev = s.prevActions || [], done = prev.filter(a => a.done === true);
+  const probs = problems(s.cards).filter(c => !c.notSame);
+  return {
+    present, added,
+    voices: present ? added / present : null,
+    balance: cardsCounted ? Math.max(...counts) / cardsCounted : null,
+    votesCast, votesAvail: present * cfg.VOTES_PER_PERSON,
+    actionsCreated: acts.length, actionsOwned: acts.filter(c => c.owner).length,
+    prevDone: done.length, prevTotal: prev.length,
+    held: done.filter(a => !probs.some(c => similar(c.text, a.text))).length,
+    returned: s.cards.filter(c => c.returned).map(c => ({ text: c.text, streak: c.returned.streak })),
+    sea: computeSea(s.cards, cfg).word
+  };
+}
+/* Warning rules, and nothing else */
+const HEALTH_WARN = {
+  voices: h => h.voices != null && h.voices < .6,
+  balance: h => h.balance != null && h.balance > .4,
+  done: h => h.prevTotal > 0 && h.prevDone / h.prevTotal < .5,
+  returned: h => (h.returned || []).length > 0,
+};
 /* The live inputs for computeEnergy (reads the room, so not pure) */
 function energyOf(s = S){
   return computeEnergy({
@@ -801,6 +834,9 @@ function apply(a, local){
       x.done = a.done; renderStage();
       break;
     }
+    case "present":
+      S.peakPresent = Math.max(S.peakPresent || 0, a.n);
+      break;
     case "notSame": {
       const c = byId(a.cardId); if (!c) return;
       c.returned = null; c.notSame = true;
@@ -1223,6 +1259,7 @@ function renderAvatars(){
   if (S && S.phase === 0) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
   if (S) recompute(); // speed depends on how many people are present
+  if (S && isFac() && S.phase < 4 && all.length > (S.peakPresent || 0)) dispatch({ type:"present", n: all.length });
 }
 
 /* ================================================================
@@ -1261,6 +1298,8 @@ function currentSummary(){
     rocks: problems(S.cards).map(c => c.text),
     participation: S.phase === 0 ? null : participationOf(),
     actions: S.cards.filter(c => c.scraped).map(c => c.text),
+    actionItems: S.cards.filter(c => c.scraped).map(c => ({ text: c.text, owner: c.owner || null })),
+    health: S.phase === 0 ? null : retroHealth(S, C, people().length),
     startedAt: S.startedAt, endedAt: Date.now()
   };
 }
@@ -1287,37 +1326,63 @@ function logbookSection(includeCurrent, noHeading){
   const rows = [...team.sessions];
   if (includeCurrent) rows.push({ ...currentSummary(), current: true });
   if (!rows.length) return [h("h3", { text:"Logbook" }), h("p", { class:"muted", text:"No past voyages yet. They appear here after each Harbor." })];
-
+  return [
+    noHeading ? null : h("h3", { text:"Logbook" }),
+    ...(isFac() ? healthSection(rows) : []),
+    h("h3", { text:"Voyages" }),
+    h("div", {}, rows.slice().reverse().map(voyageRow))
+  ];
+}
+/* Everyone: ship name, star result and action items */
+function voyageRow(r){
+  const bits = [];
+  if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
+  if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true || r.outcome === "returned" ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
+  if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
+  if (!bits.length) bits.push("No star this voyage");
+  const d = h("div", { class:"voy-d" });
+  bits.forEach((x, i) => { if (i) d.append(" · "); d.append(x); });
+  const items = r.actionItems || (r.actions || []).map(text => ({ text, owner: undefined }));
+  return h("div", { class:"voy" },
+    h("div", { class:"voy-h" }, h("b", { text: (r.ship || "Unnamed ship") + (r.current ? " (now)" : "") }), badge(r.outcome)),
+    d,
+    items.length
+      ? h("ul", { class:"actions", "aria-label":"Action items" }, items.map(a => h("li", {}, a.text,
+          h("span", { class:"muted", text: a.owner ? ` · ${a.owner}` : a.owner === null ? " · no owner" : " · owner —" }))))
+      : h("div", { class:"voy-d", text:"No action items" }));
+}
+/* Facilitator only: passive retro health, last 5 voyages side by side. Never one score. */
+function healthSection(rows){
   const scored = rows.filter(r => SCORED.has(r.outcome));
   const met = scored.filter(r => MET.has(r.outcome)).length;
   const recurring = recurringRocks(rows);
-  const lastP = [...rows].reverse().find(r => r.participation && r.participation.present);
-  const speeds = rows.map(r => r.finalSpeed).filter(v => v != null);
   const stat = (label, value, note, bad) => h("div", { class:"stat" }, h("span", { text: label }), h("b", { class: bad ? "bad" : null, text: value }), h("small", { text: note }));
-
+  const from = Math.max(0, rows.length - 5), last = rows.slice(from);
+  const pct = x => x == null ? "—" : Math.round(x * 100) + "%";
+  const H = r => r.health || null;
+  const metrics = [
+    ["Voices", "added a card ÷ present", r => H(r) ? `${H(r).added} of ${H(r).present} (${pct(H(r).voices)})` : "—", r => H(r) && HEALTH_WARN.voices(H(r))],
+    ["Balance", "cards from the most active person", r => H(r) ? pct(H(r).balance) : "—", r => H(r) && HEALTH_WARN.balance(H(r))],
+    ["Votes used", "cast ÷ available", r => H(r) ? `${H(r).votesCast} of ${H(r).votesAvail}` : "—"],
+    ["Actions", "created · with owner", r => H(r) ? `${H(r).actionsCreated} · ${H(r).actionsOwned} owned` : "—"],
+    ["Actions done", "last retro's, marked Done", r => H(r) && H(r).prevTotal ? `${H(r).prevDone} of ${H(r).prevTotal}` : "—", r => H(r) && HEALTH_WARN.done(H(r))],
+    ["Fixes that held", "Done, and the rock didn't come back", r => H(r) && H(r).prevDone ? `${H(r).held} of ${H(r).prevDone}` : "—"],
+    ["Returned rocks", "this retro", r => H(r) ? (H(r).returned.length ? H(r).returned.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0") : "—", r => H(r) && HEALTH_WARN.returned(H(r))],
+    ["Recurring rocks", "3+ retros in a row", (r, i) => { const rec = recurringRocks(rows.slice(0, from + i + 1)); return rec.length ? rec.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0"; },
+      (r, i) => recurringRocks(rows.slice(0, from + i + 1)).length > 0],
+    ["Sea at the end", "", r => H(r) ? H(r).sea : "—"],
+  ];
   return [
-    noHeading ? null : h("h3", { text:"Logbook" }),
+    h("h3", { text:"Retro health" }),
+    h("p", { class:"muted", text:"Only you see this. Nothing here is a survey or a score; it comes from what the crew already did." }),
     h("div", { class:"stats" },
-      stat("Star hit rate", scored.length ? `${met} of ${scored.length}` : "—", "main score"),
-      stat("Recurring rocks", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0),
-      stat("Participation", lastP ? `${lastP.participation.added} of ${lastP.participation.present}` : "—", "added a card"),
-      stat("Speed trend", speeds.length > 1 ? `${speeds[0].toFixed(1)} → ${speeds[speeds.length-1].toFixed(1)} kn` : speeds.length ? `${speeds[0].toFixed(1)} kn` : "—", "mood only, not scored")
-    ),
-    h("div", {}, rows.slice().reverse().map(r => {
-      const bits = [];
-      if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
-      if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
-      if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
-      if (!bits.length) bits.push("No star this voyage");
-      const d = h("div", { class:"voy-d" });
-      bits.forEach((x, i) => { if (i) d.append(" · "); d.append(x); });
-      return h("div", { class:"voy" },
-        h("div", { class:"voy-h" },
-          h("b", { text: (r.ship || "Unnamed ship") + (r.current ? " (now)" : "") }),
-          h("span", { class:"kn", text: `${(r.finalSpeed ?? 0).toFixed(1)} kn` }),
-          badge(r.outcome)),
-        d);
-    }))
+      stat("Star hit rate", scored.length ? `${met} of ${scored.length}` : "—", "stars met"),
+      stat("Recurring rocks", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0)),
+    h("div", { class:"health-wrap" }, h("table", { class:"log health" },
+      h("thead", {}, h("tr", {}, h("th", { scope:"col", text:"" }), last.map(r => h("th", { scope:"col", text: (r.ship || "Unnamed") + (r.current ? " (now)" : "") })))),
+      h("tbody", {}, metrics.map(([label, note, val, warn]) => h("tr", {},
+        h("th", { scope:"row" }, label, note ? h("small", { text: note }) : null),
+        last.map((r, i) => { const bad = warn && warn(r, i); return h("td", { class: bad ? "warn-c" : null }, bad ? "⚠ " : "", val(r, i)); })))))),
   ];
 }
 function voteButtons(){
