@@ -29,7 +29,14 @@ a{color:var(--wind)}
 body:not(.is-fac) .fac-only{display:none!important}
 
 /* the sea sits in the top part of the screen so the ship, rocks, wind and barnacles are never covered */
-#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block}
+#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block;transition:height .45s ease}
+/* Navigate, Set course, Harbor on desktop: the cards get the room, the scene zooms in on the ship */
+@media (min-width:761px){
+  body.wide #scene{height:40vh}
+  body.wide #stage{top:calc(40vh + 6px);max-height:none}
+  body.wide .rockpick{display:grid;grid-template-columns:1fr 1fr}
+  body.wide #stage.st-harbor{width:min(720px,calc(100vw - 24px))}
+}
 
 /* top bar */
 header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;
@@ -40,7 +47,7 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 .spacer{flex:1}
 #avatars{display:flex;align-items:center}
 .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
-  color:#0d1a2e;border:2px solid #0e1b30;margin-left:-7px}
+  color:#0d1a2e;border:2px solid #0e1b30;margin-left:-4px;font-size:13px}
 .av.more{background:#2a3d5c;color:var(--ui-text)}
 .btn{background:rgba(255,255,255,.1);border:1px solid var(--ui-line);border-radius:10px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .btn:hover{background:rgba(255,255,255,.18)}
@@ -106,7 +113,11 @@ body.is-fac .step:hover{color:var(--ui-text)}
 .min-in{width:58px;padding:5px 7px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right;color:var(--ui-text)}
 .compose{display:grid;gap:10px;padding:2px 0 8px}
 .seg.big label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;font-weight:600}
-.seg.big .ico{font-size:22px}
+.seg.big .ico{display:grid;place-items:center;height:26px}
+.type-ico{display:block;flex:none}
+ul.tour-list li.tour-type{list-style:none;margin-left:-20px;display:grid;grid-template-columns:20px 1fr;column-gap:10px;align-items:baseline}
+ul.tour-list li.tour-type .type-ico{align-self:center}
+ul.tour-list li.tour-type .tour-ex{grid-column:2}
 .compose-row{display:flex;gap:8px}
 .compose-row .text-in{flex:1;padding:12px;font-size:15px}
 .anon{font-size:13px;color:var(--ui-muted)}
@@ -139,10 +150,15 @@ ul.cards{list-style:none;margin:0;padding:0 0 6px}
 .card p{margin:0 0 6px;word-break:break-word}
 .meta{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ui-muted);flex-wrap:wrap}
 .meta .author{flex:1;min-width:80px}
-.vote{display:flex;align-items:center;gap:4px}
-.vote button{width:28px;height:28px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(255,255,255,.08);cursor:pointer}
-.vote button:disabled{opacity:.35;cursor:not-allowed}
-.vote .n{min-width:52px;text-align:center;color:var(--ui-text)}
+.vote{display:flex;align-items:center;gap:6px}
+.vote button{width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.1);cursor:pointer;font-size:17px;line-height:1}
+.vote button:hover:not(:disabled){background:rgba(255,255,255,.18)}
+.vote button:disabled{opacity:.45;cursor:not-allowed;background:transparent}
+.vote .n{min-width:44px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ui-text)}
+.vote .n b{font-size:16px;line-height:1;font-variant-numeric:tabular-nums}
+.pips{display:flex;gap:3px}
+.pips i{width:7px;height:7px;border-radius:50%;border:1.5px solid rgba(127,214,194,.55)}
+.pips i.on{background:var(--wind);border-color:var(--wind)}
 .scrape{font-size:12px}
 .card.back{background:rgba(240,138,126,.1)}
 .warn{color:var(--barnacle);font-size:13.5px;margin:4px 0}
@@ -235,7 +251,12 @@ td.warn-c{color:var(--rock)}
 .voy-d{font-size:12.5px;color:var(--ui-muted);margin-top:3px}
 .voy-d .s{color:var(--star)}
 .rockpick{display:flex;flex-direction:column;gap:6px;margin:6px 0}
-.rockpick .btn{text-align:left;white-space:normal;display:flex;gap:8px;align-items:center}
+.rockpick .btn{text-align:left;white-space:normal;display:flex;gap:10px;align-items:center;padding:9px 12px;font-size:14px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16)}
+.rockpick .btn:hover{background:rgba(255,255,255,.12)}
+.rockpick .btn[aria-pressed="true"]{background:rgba(127,214,194,.16);border-color:var(--wind)}
+.rockpick .radio{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.45);flex:none;display:grid;place-items:center}
+.rockpick .btn[aria-pressed="true"] .radio{border-color:var(--wind)}
+.rockpick .btn[aria-pressed="true"] .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--wind)}
 .rockpick .btn .v{margin-left:auto;font-size:12px;color:var(--ui-muted);white-space:nowrap}
 .rockpick .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .textin{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);margin-top:6px}
@@ -257,10 +278,12 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .tour-sheet .grow{flex:1}
 ul.tour-list{margin:0;padding-left:20px;display:grid;gap:8px}
 .tour-ex{display:block;color:var(--ui-muted);font-size:13px;font-style:italic}
-.step-hint{margin:-4px 18px 6px;font-size:13.5px;color:var(--star)}
+.step-hint{margin:-4px 18px 6px;font-size:13.5px;color:var(--ui-muted)}
 ul.checklist{list-style:none;margin:2px 0 8px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;font-size:14px}
 ul.checklist li{display:flex;gap:8px;align-items:center}
-ul.checklist .tick{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:1px solid var(--ui-line)}
+ul.checklist{grid-template-columns:repeat(3,auto);justify-content:start}
+ul.checklist .tick{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px}
+ul.checklist li.todo .tick::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ui-muted)}
 ul.checklist li.done{color:var(--ui-muted)}
 ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:transparent}
 
@@ -356,7 +379,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <path d="M-150,-6 L178,-10 Q140,52 92,62 L-112,62 Q-146,40 -150,-6 Z" fill="#b5523f"/>
       <path d="M-150,-6 L178,-10 L172,2 L-148,6 Z" fill="#f5ead6"/>
       <g id="barnacles"></g>
-      <text id="hullName" x="12" y="38" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
+      <text id="hullName" x="12" y="31" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
     </g>
   </g>
   <g id="seaRocks"></g>
@@ -888,6 +911,8 @@ function apply(a, local){
     }
     case "phase":
       S.phase = a.phase; S.phaseStartedAt = a.startedAt || 0; S.phaseMinutes = a.minutes || 0;
+      if (lastToast) clearTimeout(lastToast.timer);
+      $("toasts").replaceChildren(); lastToast = null; // last step's messages go with it
       renderPhase(); renderStage(); centerMode = null; renderModal();
       if (!local) announce(`Step ${a.phase + 1}: ${PHASES[a.phase].name}`);
       break;
@@ -991,21 +1016,36 @@ const starEls = STAR_SLOTS.map(([x,y]) => {
   const dot = el("path", { d: starPath(7,3), fill: "#ffffff", opacity: .45 }, g);
   return { g, glow, dot };
 });
+/* The scene's camera: the full sea on Dock and Sail, zoomed on the ship when the cards need the room */
+const wideMQ = matchMedia("(min-width: 761px)");
+const VB_FULL = { y: 0, h: 900 }, VB_WIDE = { y: 208, h: 400 }; // wide: mast top to waterline, clear of the step bar
+let vb = { ...VB_FULL };
+const isWide = () => !!S && S.phase >= 2 && wideMQ.matches;
+function applyWide(){
+  document.body.classList.toggle("wide", isWide());
+  setTimeout(() => { layoutConstellation(); renderRocks(); }, reduced ? 0 : 500);
+}
+wideMQ.addEventListener?.("change", () => S && applyWide());
 function visibleSky(){
-  const scale = Math.max(innerWidth / 1600, ($("scene").clientHeight || innerHeight) / 900);
+  const scale = Math.max(innerWidth / 1600, ($("scene").clientHeight || innerHeight) / (isWide() ? VB_WIDE.h : 900));
   const w = innerWidth / scale;
   return { left: 800 - w/2, right: 800 + w/2, w };
 }
 function layoutConstellation(){
   const { right, w } = visibleSky();
   const g = $("constellation");
-  if (right >= 1580){ g.removeAttribute("transform"); }
+  if (isWide()){
+    // zoomed in: the action-item stars move down into the visible band of sky
+    const s = Math.min(.6, (w * .4) / 520);
+    g.setAttribute("transform", `translate(${right - 30 - 1560 * s},${250 - 60 * s}) scale(${s})`);
+  }
+  else if (right >= 1580){ g.removeAttribute("transform"); }
   else {
     const s = Math.min(1, (w * .8) / 520);
     g.setAttribute("transform", `translate(${right - 24 - 1560 * s},${(1 - s) * 60 + 20}) scale(${s})`);
   }
   // The named star sits on the horizon ahead of the boat
-  const x = Math.min(1320, right - 80);
+  const x = isWide() ? Math.min(1180, right - 400) : Math.min(1320, right - 80);
   $("northStarPos").setAttribute("transform", `translate(${x},392)`);
 }
 addEventListener("resize", () => { layoutConstellation(); renderRocks(); });
@@ -1027,7 +1067,8 @@ function renderStars(){
   });
 }
 
-const BARN_SLOTS = [[-100,38],[-70,46],[-40,40],[-10,48],[20,42],[50,48],[80,40],[-120,50],[-55,54],[5,56],[65,55],[105,44],[-85,30],[35,32],[-25,32],[95,30],[-110,22],[120,34],[-5,24],[60,26]];
+// Barnacles sit below the ship's name (name baseline y 31)
+const BARN_SLOTS = [[-100,48],[-70,54],[-40,48],[-10,55],[20,48],[50,54],[80,48],[110,50],[-120,52],[-55,57],[5,57],[65,57],[-85,46],[35,46],[-25,46],[95,46],[-110,46],[125,46],[-5,47],[140,40]];
 function renderBarnacles(newId){
   const g = $("barnacles"); g.innerHTML = "";
   const active = S.cards.filter(c => c.type === "barnacle" && !c.returned && isOpenProblem(c));
@@ -1054,8 +1095,9 @@ const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, c
 const ROCK_D = "M-32,14 L-24,-12 L-6,-28 L14,-22 L30,-4 L36,14 Z";
 function rockSlots(){
   const right = Math.min(1570, visibleSky().right - 36), out = [];
-  for (let x = 1055; x <= right; x += 92) out.push({ x, y: 606, s: 1 });      // front row
-  for (let x = 1090; x <= right; x += 80) out.push({ x, y: 556, s: .72 });    // further away
+  const lift = isWide() ? 24 : 0; // zoomed view: rocks sit a bit higher so the step box never hides them
+  for (let x = 1055; x <= right; x += 92) out.push({ x, y: 606 - lift, s: 1 });      // front row
+  for (let x = 1090; x <= right; x += 80) out.push({ x, y: 556 - lift, s: .72 });    // further away
   return out;
 }
 function renderRocks(newId){
@@ -1094,10 +1136,18 @@ function renderRocks(newId){
   [true, false].forEach(back => shown.forEach((c, i) => { if ((slots[i].s < 1) === back) g.appendChild(rockEls.get(c.id).g); }));
   let more = g.querySelector(".more");
   if (open.length > shown.length){
-    if (!more){ more = el("text", { class: "more", fill: "#fff", "font-size": 18, "font-weight": 700 }, g); }
-    const last = slots[shown.length - 1] || { x: 1055, y: 606 };
-    more.setAttribute("x", Math.min(last.x + 30, 1560)); more.setAttribute("y", last.y - 34);
-    more.textContent = `+${open.length - shown.length}`;
+    if (!more){
+      more = el("g", { class: "more" }, g);
+      el("rect", { rx: 14, height: 28, y: -20, fill: "rgba(14,27,48,.78)", stroke: "rgba(255,255,255,.18)" }, more);
+      el("text", { x: 12, y: -1, fill: "#eef3fa", "font-size": 16, "font-weight": 600 }, more);
+    }
+    // right after the last rock in the front row
+    const xs = shown.map((c, i) => slots[i]).filter(sl => sl.s === 1).map(sl => sl.x);
+    const x = Math.min((xs.length ? Math.max(...xs) : 1055) + 44, visibleSky().right - 110);
+    more.querySelector("text").textContent = `+${open.length - shown.length} more`;
+    more.querySelector("rect").setAttribute("width", 96);
+    more.setAttribute("transform", `translate(${x},${isWide() ? 532 : 556})`); // above the front wave
+    g.appendChild(more);
   } else if (more) more.remove();
   return made;
 }
@@ -1216,6 +1266,7 @@ function onShipInput(inp){
 }
 
 function renderPhase(){
+  applyWide();
   const steps = $("steps"); steps.innerHTML = "";
   PHASES.forEach((p, i) => {
     if (i) steps.appendChild(h("li", { "aria-hidden":"true" }, h("span", { class: "sep" + (i <= S.phase ? " done" : "") })));
@@ -1258,7 +1309,23 @@ function renderSeaWord(){
 /* ================================================================
    Toasts + live region
    ================================================================ */
-const VERB = { wind:"added wind 🌬", rock:"hit a rock 🪨", barnacle:"found a barnacle 🐚" };
+const VERB = { wind:"added wind", rock:"hit a rock", barnacle:"found a barnacle" };
+/* Card type icons, drawn to match the scene (emoji render differently on every system) */
+function typeIcon(type, size = 24){
+  const svg = el("svg", { viewBox:"0 0 24 24", width:size, height:size, "aria-hidden":"true", class:"type-ico", style:`color:var(--${type})` });
+  if (type === "wind"){
+    for (const d of ["M3 8.5h10.5a3 3 0 1 0-3-3", "M3 12.5h15a3 3 0 1 1-3 3", "M3 16.5h6"])
+      el("path", { d, fill:"none", stroke:"currentColor", "stroke-width":2.2, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
+  } else if (type === "rock"){
+    // the same rock as in the water, scaled down
+    el("path", { d:"M1.7 18.9 L4.3 10.3 L10.1 5.5 L16.5 7.4 L21.6 12.5 L23 18.9 Z", fill:"currentColor", "fill-opacity":.4, stroke:"currentColor", "stroke-width":1.8, "stroke-linejoin":"round" }, svg);
+    el("path", { d:"M5.9 11.9 L10.1 7.4 L14.6 8.7", fill:"none", stroke:"#fff", "stroke-opacity":.45, "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
+  } else {
+    el("circle", { cx:12, cy:12, r:7.5, fill:"none", stroke:"currentColor", "stroke-width":2.2 }, svg);
+    el("circle", { cx:12, cy:12, r:3, fill:"currentColor" }, svg);
+  }
+  return svg;
+}
 let lastToast = null;
 function toast(type, name){
   const who = name || "Someone";
@@ -1267,12 +1334,12 @@ function toast(type, name){
     lastToast.names.add(who); lastToast.count++; lastToast.t = now;
     const first = [...lastToast.names][0];
     lastToast.text.textContent = `${first} and ${lastToast.count - 1} other${lastToast.count>2?"s":""} ${VERB[type]}`;
-    clearTimeout(lastToast.timer); lastToast.timer = setTimeout(() => fade(lastToast.el), 2600);
+    clearTimeout(lastToast.timer); const box = lastToast.el; lastToast.timer = setTimeout(() => fade(box), 2600);
     return;
   }
   const d = pushToast(`var(--${type})`, `${who} ${VERB[type]}`);
   lastToast = { type, el: d, text: d.lastChild, names: new Set([who]), count: 1, t: now, timer: setTimeout(() => fade(d), 2600) };
-  announce(`${who} ${VERB[type].replace(/\s\S+$/,"")}`);
+  announce(`${who} ${VERB[type]}`);
 }
 function oldRockToast(card){
   const text = S.phase <= 1 ? "An old rock is back" : `An old rock is back: ${card.text}`;
@@ -1296,7 +1363,7 @@ function renderAvatars(){
   const all = people();
   const max = innerWidth < 760 ? 3 : 6;
   all.slice(0, max).forEach(p => {
-    box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,2) }));
+    box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,1).toUpperCase() }));
   });
   if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
   if (S && S.phase === 0) renderStage();
@@ -1476,7 +1543,7 @@ function nextStarSection(){
       const on = ns && ns.rockId === c.id;
       return h("button", { class:"btn small", type:"button", "aria-pressed": String(!!on),
         onclick: () => dispatch({ type:"nextStar", rerender:true, nextStar: on ? { ...ns, rockId:null, rock:null } : { text: ns?.text || "", rockId: c.id, rock: c.text } }) },
-        h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
+        h("span", { class:"radio", "aria-hidden":"true" }), h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
     })));
   } else {
     out.push(h("p", { class:"muted", text:"No rocks this retro. You can still write a star; the team vote will decide next time." }));
@@ -1496,7 +1563,7 @@ function nextStarSection(){
 const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
 const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
 const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
-const TYPES = [["wind","Wind","🌬"],["rock","Rock","🪨"],["barnacle","Barnacle","🐚"]];
+const TYPES = [["wind","Wind"],["rock","Rock"],["barnacle","Barnacle"]];
 const TOP_N = 5;
 const stage = $("stage");
 const myCards = new Set();
@@ -1541,11 +1608,11 @@ function planEditor(){
   })));
 }
 function composer(){
-  const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name, ico]) => {
+  const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name]) => {
     const inp = h("input", { type:"radio", name:"ctype", id:"ct-" + t, value: t });
     inp.checked = composeType === t;
     inp.onchange = () => { composeType = t; };
-    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico", text: ico }), name)];
+    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico" }, typeIcon(t, 26)), name)];
   }));
   const text = h("input", { class:"text-in", id:"cardText", maxlength:200, placeholder:"What happened?", "aria-label":"Card text", autocomplete:"off" });
   const anon = h("input", { type:"checkbox", id:"anon" });
@@ -1614,7 +1681,7 @@ function stageContent(p){
       h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
     ];
   }
-  return [...starCheckSection("harbor"), ...nextStarSection(), h("h3", { class:"col-h", text:"★ Action items" }),
+  return [...(S.star ? starCheckSection("harbor") : []), ...nextStarSection(), h("h3", { class:"col-h", text:"★ Action items" }),
     noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Go back to Set course to pick one." : "Unowned actions rarely get done."}` }) : null,
     actList];
 }
@@ -1652,7 +1719,9 @@ function tile(c, mode){
   if (mode === "vote"){
     meta.append(h("div", { class:"vote" },
       h("button", { type:"button", "data-fk":"m" + c.id, "aria-label":`Remove my vote: ${c.text}`, text:"−", disabled: !mine, onclick: () => myVote(c.id, -1) }),
-      h("span", { class:"n", text: mine ? `${total} · ${mine} mine` : String(total) }),
+      h("span", { class:"n", "aria-label":`${plural(total, "vote")}, ${mine} yours` },
+        h("b", { text: String(total) }),
+        h("span", { class:"pips", "aria-hidden":"true" }, Array.from({ length: C.MAX_VOTES_PER_CARD }, (_, i) => h("i", { class: i < mine ? "on" : null })))),
       h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
   } else if (mode === "owner" || mode === "action"){
     if (mode === "owner" && isFac()){
@@ -1693,7 +1762,7 @@ function renderModal(){
   if (!centerMode){ box.hidden = true; return; }
   body.innerHTML = "";
   if (centerMode === "logbook"){
-    body.append(...[h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true)].filter(Boolean));
+    body.append(...[h("h2", { id:"centerTitle", text:"Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true)].filter(Boolean));
   } else if (centerMode === "links"){
     body.append(h("h2", { id:"centerTitle", text:"Share this retro" }), ...linksSection());
   }
@@ -1736,9 +1805,9 @@ const TOURS = {
   ],
   participant: [
     ["Three kinds of cards", () => [h("ul", { class:"tour-list" },
-      h("li", {}, h("b", { text:"🌬 Wind" }), ": what helped us.", h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
-      h("li", {}, h("b", { text:"🪨 Rock" }), ": what blocked us.", h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
-      h("li", {}, h("b", { text:"🐚 Barnacle" }), ": small things that slow us down.", h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
+      h("li", { class:"tour-type" }, typeIcon("wind", 20), h("span", {}, h("b", { text:"Wind" }), ": what helped us."), h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
+      h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Rock" }), ": what blocked us."), h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
+      h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Barnacle" }), ": small things that slow us down."), h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
     ["Every card moves the ship", () => [
       h("p", { text:"Every card you add makes the ship faster. Rocks make the sea rough, they never slow the ship." }),
       h("p", { text:"You can post anonymously." })]],
@@ -1781,17 +1850,20 @@ function dockChecklist(){
     ["Name the ship", !!S.ship],
     ["Share the team link", !!sget("rtw-shared-" + team.id)],
     ["Set minutes per step", !!sget("rtw-mins-" + team.id)],
-    ["Cast off", S.phase > 0],
   ];
-  return [h("h3", { text:"Before you cast off" }), h("ul", { class:"checklist", "aria-label":"Checklist" }, items.map(([label, done]) =>
-    h("li", { class: done ? "done" : null }, h("span", { class:"tick", "aria-hidden":"true", text: done ? "✓" : "" }), h("span", { text: label + (done ? " (done)" : "") }))))];
+  const ready = items.filter(x => x[1]).length;
+  return [h("h3", { text:`Before you cast off · ${ready} of ${items.length} ready` }), h("ul", { class:"checklist", "aria-label":"Checklist" }, items.map(([label, done]) =>
+    h("li", { class: done ? "done" : "todo" }, h("span", { class:"tick", "aria-hidden":"true", text: done ? "✓" : "" }), h("span", { text: label + (done ? " (done)" : "") }))))];
 }
 /* Each step's hint shows once per person, the first time they see that step */
 function stepHint(p){
   const seen = sget("rtw-seen-steps") || [];
   if (seen.includes(PHASES[p].key)) return null;
   sset("rtw-seen-steps", [...seen, PHASES[p].key]);
-  return h("p", { class:"step-hint", text: PHASES[p].hint });
+  const text = p === 0 && !S.star ? "Name the ship, then check in as the crew comes aboard."
+    : p === 4 && !S.star ? "Tie the next star to a rock, then save the voyage."
+    : PHASES[p].hint;
+  return h("p", { class:"step-hint", text });
 }
 
 /* ================================================================
@@ -1947,7 +2019,7 @@ function tickSilent(){
   if (left <= 0){ syncSilent(); renderStage(); announce("Silent writing ended. Names are now visible."); return; }
   const s = Math.ceil(left/1000);
   $("silentChip").hidden = false;
-  $("silentChip").textContent = `🤫 Silent writing ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  $("silentChip").textContent = `Silent writing ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 }
 
 /* ================================================================
@@ -1959,6 +2031,13 @@ const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick
 
 function frame(now){
   const dt = Math.min(.1, (now - last) / 1000); last = now;
+  const vt = isWide() ? VB_WIDE : VB_FULL;
+  if (vb.y !== vt.y || vb.h !== vt.h){
+    const k = reduced ? 1 : 1 - Math.exp(-dt / .16);
+    vb.y += (vt.y - vb.y) * k; vb.h += (vt.h - vb.h) * k;
+    if (Math.abs(vb.y - vt.y) < .5 && Math.abs(vb.h - vt.h) < .5) vb = { ...vt };
+    $("scene").setAttribute("viewBox", `0 ${vb.y.toFixed(1)} 1600 ${vb.h.toFixed(1)}`);
+  }
   if (!reduced) t += dt;
   speed = stepSpeed(speed, model.target, dt);
 
@@ -1994,7 +2073,7 @@ function frame(now){
   nsGlow.setAttribute("opacity", starOk ? .9 : 0);
 
   // Rough sea: the boat sits a little lower and rocks harder. It never slows down.
-  sink += (rough * 14 - sink) * (1 - Math.exp(-dt / .8));
+  sink += (rough * 5 - sink) * (1 - Math.exp(-dt / .8)); // a little lower in a rough sea, never enough to drown the name
   const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 6);
   const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
   boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
