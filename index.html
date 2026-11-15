@@ -456,9 +456,9 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
   <ul class="help-list">
     <li><b>Speed</b> = how much of the crew is taking part: cards, votes and owned action items.</li>
-    <li><b>Sea</b> = how the sprint felt. Rocks make it rough, wind calms it.</li>
-    <li><b>Rocks clear</b> when someone owns an action for them.</li>
-    <li>A <b>darker rock</b> is a problem that came back.</li>
+    <li><b>Sea</b> = how the sprint felt. Icebergs make it rough, wind calms it.</li>
+    <li><b>Icebergs melt</b> when someone owns an action for them.</li>
+    <li>A <b>bigger iceberg</b> is a problem that came back.</li>
     <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
   </ul>
   <p style="margin:0;padding:0 16px 14px"><button class="btn small" type="button" id="showTour">Show the tour</button></p>
@@ -580,11 +580,11 @@ const PARAMS = [
   ["UNOWNED_ACTION","Action without owner counts",0,1,.05,"Share of an owned one"],
   ["Sea state = mood (never changes speed)"],
   ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
-  ["ROCK_TROUBLE","Rock trouble",0,5,.1,"trouble = rocks × this + barnacles × …; roughness = trouble ÷ (wind + trouble)"],
+  ["ROCK_TROUBLE","Iceberg trouble",0,5,.1,"trouble = icebergs × this + barnacles × …; roughness = trouble ÷ (wind + trouble)"],
   ["BARNACLE_TROUBLE","Barnacle trouble",0,5,.1,""],
   ["UNOWNED_TROUBLE","Action without owner keeps",0,1,.05,"Share of trouble left. With an owner it is 0."],
-  ["RETURN_STEP","Returning rock step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
-  ["RETURN_CAP","Returning rock cap",1,5,.1,"Max multiplier"],
+  ["RETURN_STEP","Returning iceberg step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
+  ["RETURN_CAP","Returning iceberg cap",1,5,.1,"Max multiplier"],
   ["Inertia"],
   ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
   ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
@@ -602,7 +602,7 @@ const PARAMS = [
   ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
   ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
   ["MAX_BARNACLE_SPRITES","Barnacles drawn on hull",1,20,1,"The rest show as +N"],
-  ["MAX_ROCK_SPRITES","Rocks drawn in the water",1,16,1,"The rest show as +N"],
+  ["MAX_ROCK_SPRITES","Icebergs drawn in the water",1,16,1,"The rest show as +N"],
   ["TOAST_MERGE_MS","Merge toasts within (ms)",0,6000,250,"\"Ana and 3 others added wind\""],
   ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
   ["Simulation (fake data)"],
@@ -625,16 +625,16 @@ function loadConfig(cfg){
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
   { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
-  { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, rocks and barnacles. The boat reacts live." },
+  { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and barnacles. The boat reacts live." },
   { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Votes change the speed." },
-  { key:"course", name:"Set course", std:"Decide what to do",   hint:"Turn top rocks and barnacles into action items (★)." },
-  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to a rock, save the voyage." },
+  { key:"course", name:"Set course", std:"Decide what to do",   hint:"Turn top icebergs and barnacles into action items (★)." },
+  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to an iceberg, save the voyage." },
 ];
 /* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
 const STAR_OUT = {
   met:       ["Star met", "ok"],
   pending:   ["In progress", "neutral"],
-  returned:  ["Rock returned", "bad"],
+  returned:  ["Iceberg returned", "bad"],
   missed:    ["Star missed", "bad"],
   unchecked: ["Not checked", "neutral"],
   none:      ["No star", "neutral"],
@@ -1092,7 +1092,10 @@ function renderBarnacles(newId){
 /* Open rocks stay in the water ahead of the ship. A rock clears (sinks away) once its
    action item has an owner. Returning rocks are drawn larger and darker. */
 const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, clearing }
-const ROCK_D = "M-32,14 L-24,-12 L-6,-28 L14,-22 L30,-4 L36,14 Z";
+// Icebergs (the "rock" card type). Waterline at local y 14.
+const ICE_TIP_D = "M-36,14 L-24,-8 L-12,-28 L0,-18 L12,-40 L24,-12 L38,14 Z";
+const ICE_SHADE_D = "M0,-18 L12,-40 L24,-12 L38,14 L8,14 Z";
+const ICE_BODY_D = "M-46,14 L-32,42 L-6,60 L28,54 L50,28 L38,14 Z";
 function rockSlots(){
   const right = Math.min(1570, visibleSky().right - 36), out = [];
   const lift = isWide() ? 24 : 0; // zoomed view: rocks sit a bit higher so the step box never hides them
@@ -1118,17 +1121,25 @@ function renderRocks(newId){
     let r = rockEls.get(c.id);
     if (!r){
       const outer = el("g", {}, g), inner = el("g", {}, outer);
-      const path = el("path", { d: ROCK_D, "stroke-width": 2.5, "stroke-linejoin": "round" }, inner);
-      el("path", { d: "M-20,-8 L-6,-22 L8,-18", fill: "none", stroke: "rgba(255,255,255,.22)", "stroke-width": 3, "stroke-linecap": "round" }, inner);
-      r = { g: outer, inner, path, phase: Math.random() * 6 };
+      // the tip of the iceberg: a small part above the water, a bigger body under it
+      const body = el("path", { d: ICE_BODY_D, "stroke-width": 1.5, "stroke-linejoin": "round" }, inner);
+      const path = el("path", { d: ICE_TIP_D, "stroke-width": 2, "stroke-linejoin": "round" }, inner);
+      const shade = el("path", { d: ICE_SHADE_D }, inner);
+      el("path", { d: "M-24,-6 L-12,-26", fill: "none", stroke: "rgba(255,255,255,.85)", "stroke-width": 2.5, "stroke-linecap": "round" }, inner);
+      r = { g: outer, inner, path, body, shade, phase: Math.random() * 6 };
       rockEls.set(c.id, r);
       if (c.id === newId) made = r;
     }
     const slot = slots[i], back = slot.s < 1;
     const sc = slot.s * (c.returned ? 1.5 : 1) * (1 + Math.min(4, totalVotes(c)) * .08);
     r.x = slot.x; r.y = slot.y; r.card = c;
-    r.path.setAttribute("fill", c.returned ? "#2c3038" : back ? "#6b7380" : "#5d6470");
-    r.path.setAttribute("stroke", c.returned ? "#15181d" : "#3c414a");
+    // a returning iceberg is bigger (see sc) and a deeper, older blue
+    r.path.setAttribute("fill", c.returned ? "#cfe3ee" : back ? "#e3f1f7" : "#f2f9fc");
+    r.path.setAttribute("stroke", c.returned ? "#5f8fa8" : "#9cc6d8");
+    r.shade.setAttribute("fill", c.returned ? "#9fc3d6" : "#c9e3ee");
+    r.body.setAttribute("fill", c.returned ? "#6fa6c0" : "#a9d4e6");
+    r.body.setAttribute("fill-opacity", c.returned ? .55 : .4);
+    r.body.setAttribute("stroke", "none");
     r.g.setAttribute("transform", `translate(${slot.x},${slot.y}) scale(${sc.toFixed(3)})`);
     r.g.setAttribute("opacity", r.hidden ? 0 : c.scraped ? .7 : 1);
   });
@@ -1177,11 +1188,13 @@ function returnFx(r){
 function clearRock(id, r){
   r.clearing = true;
   if (reduced){ r.g.remove(); rockEls.delete(id); return; }
-  const ring = el("ellipse", { cx: r.x, cy: r.y + 10, rx: 10, ry: 3, fill: "none", stroke: "#fff6cf", "stroke-width": 3 }, $("splashes"));
+  // owned: the iceberg melts into the sea
+  const ring = el("ellipse", { cx: r.x, cy: r.y + 12, rx: 10, ry: 3, fill: "none", stroke: "#fff6cf", "stroke-width": 3 }, $("splashes"));
   const t0 = r.g.getAttribute("transform");
-  animate(1300, p => {
-    r.g.setAttribute("transform", `translate(0,${p * p * 60}) ${t0}`);
-    r.g.setAttribute("opacity", 1 - p);
+  animate(1600, p => {
+    const k = 1 - p * .85;
+    r.g.setAttribute("transform", `${t0} translate(0,14) scale(${(1 - p * .3).toFixed(3)},${k.toFixed(3)}) translate(0,-14) translate(0,${(p * 18).toFixed(1)})`);
+    r.g.setAttribute("opacity", 1 - p * p);
     ring.setAttribute("rx", 10 + p * 70); ring.setAttribute("ry", 3 + p * 12); ring.setAttribute("opacity", 1 - p);
   }, () => { r.g.remove(); ring.remove(); rockEls.delete(id); });
 }
@@ -1223,27 +1236,21 @@ function gustFx(){
   });
 }
 function rockFx(r){
-  jolt = Math.max(jolt, 1); sinkKick = 1;
-  // r: the rock sprite that stays in the water. Hidden until the falling rock lands on it.
-  const show = () => { if (r && r.hidden){ r.hidden = false; r.g.setAttribute("opacity", r.card && r.card.scraped ? .7 : 1); r.inner.setAttribute("class", "pop"); } };
-  if (r && !reduced){ r.hidden = true; r.g.setAttribute("opacity", 0); setTimeout(show, 3000); }
+  // A new iceberg drifts up out of the water and stays there. Returning ones use returnFx.
+  jolt = Math.max(jolt, .6); sinkKick = .6;
+  if (!r || reduced) return;
+  r.hidden = true; r.g.setAttribute("opacity", 0);
+  const show = () => { if (r.hidden){ r.hidden = false; r.g.setAttribute("opacity", r.card && r.card.scraped ? .7 : 1); } };
+  setTimeout(show, 3000);
   fx(done => {
-    const x = r ? r.x : 980 + Math.random()*300, landY = r ? r.y : 560 + Math.random()*40;
-    const rock = el("path", { d:"M-26,10 L-18,-14 L4,-22 L24,-8 L28,12 Z", fill:"#5d6470", stroke:"#3c414a", "stroke-width":2 }, $("falling"));
-    animate(520, p => {
-      rock.setAttribute("transform", `translate(${x},${-60 + (landY + 60) * p*p}) rotate(${p*80})`);
-    }, () => {
-      if (r){ rock.remove(); show(); }
-      const splash = el("g", { transform:`translate(${x},${landY})` }, $("splashes"));
-      const ring = el("ellipse", { rx: 10, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":3 }, splash);
-      const drops = Array.from({length:0}, () => ({ e: el("circle",{ r: 3+Math.random()*3, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*160, vy:-(120+Math.random()*160) }));
-      animate(900, p => {
-        if (!r){ rock.setAttribute("transform", `translate(${x},${landY + p*40}) rotate(80)`); rock.setAttribute("opacity", 1 - p); }
-        ring.setAttribute("rx", 10 + p*90); ring.setAttribute("ry", 3 + p*16); ring.setAttribute("opacity", 1 - p);
-        const t = p*.9;
-        for (const d of drops){ d.e.setAttribute("cx", d.vx*t); d.e.setAttribute("cy", d.vy*t + 400*t*t); d.e.setAttribute("opacity", 1 - p); }
-      }, () => { rock.remove(); splash.remove(); done(); });
-    });
+    show();
+    const base = r.g.getAttribute("transform");
+    const ring = el("ellipse", { cx: r.x, cy: r.y + 12, rx: 12, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":2.5 }, $("splashes"));
+    animate(900, p => {
+      const e = 1 - Math.pow(1 - p, 3);
+      r.g.setAttribute("transform", `translate(0,${((1 - e) * 60).toFixed(1)}) ${base}`);
+      ring.setAttribute("rx", 12 + p*70); ring.setAttribute("ry", 3 + p*12); ring.setAttribute("opacity", 1 - p);
+    }, () => { r.g.setAttribute("transform", base); ring.remove(); done(); });
   });
 }
 
@@ -1309,7 +1316,7 @@ function renderSeaWord(){
 /* ================================================================
    Toasts + live region
    ================================================================ */
-const VERB = { wind:"added wind", rock:"hit a rock", barnacle:"found a barnacle" };
+const VERB = { wind:"added wind", rock:"spotted an iceberg", barnacle:"found a barnacle" };
 /* Card type icons, drawn to match the scene (emoji render differently on every system) */
 function typeIcon(type, size = 24){
   const svg = el("svg", { viewBox:"0 0 24 24", width:size, height:size, "aria-hidden":"true", class:"type-ico", style:`color:var(--${type})` });
@@ -1317,9 +1324,10 @@ function typeIcon(type, size = 24){
     for (const d of ["M3 8.5h10.5a3 3 0 1 0-3-3", "M3 12.5h15a3 3 0 1 1-3 3", "M3 16.5h6"])
       el("path", { d, fill:"none", stroke:"currentColor", "stroke-width":2.2, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
   } else if (type === "rock"){
-    // the same rock as in the water, scaled down
-    el("path", { d:"M1.7 18.9 L4.3 10.3 L10.1 5.5 L16.5 7.4 L21.6 12.5 L23 18.9 Z", fill:"currentColor", "fill-opacity":.4, stroke:"currentColor", "stroke-width":1.8, "stroke-linejoin":"round" }, svg);
-    el("path", { d:"M5.9 11.9 L10.1 7.4 L14.6 8.7", fill:"none", stroke:"#fff", "stroke-opacity":.45, "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
+    // an iceberg: the tip above the waterline, the bigger part below
+    el("path", { d:"M3.5 14 L7.5 8.5 L10 10.5 L13.5 3.5 L17.5 10 L20.5 14 Z", fill:"currentColor", "fill-opacity":.4, stroke:"currentColor", "stroke-width":1.8, "stroke-linejoin":"round" }, svg);
+    el("path", { d:"M1.5 14 H22.5", stroke:"currentColor", "stroke-width":1.8, "stroke-linecap":"round" }, svg);
+    el("path", { d:"M4.5 16.5 L8 21 H16.5 L20 16.5", fill:"none", stroke:"currentColor", "stroke-opacity":.55, "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round", "stroke-dasharray":"2 2.2" }, svg);
   } else {
     el("circle", { cx:12, cy:12, r:7.5, fill:"none", stroke:"currentColor", "stroke-width":2.2 }, svg);
     el("circle", { cx:12, cy:12, r:3, fill:"currentColor" }, svg);
@@ -1342,7 +1350,7 @@ function toast(type, name){
   announce(`${who} ${VERB[type]}`);
 }
 function oldRockToast(card){
-  const text = S.phase <= 1 ? "An old rock is back" : `An old rock is back: ${card.text}`;
+  const text = S.phase <= 1 ? "An old iceberg is back" : `An old iceberg is back: ${card.text}`;
   const d = pushToast("var(--rock)", text); setTimeout(() => fade(d), 3600);
   announce(text);
 }
@@ -1447,7 +1455,7 @@ function logbookSection(includeCurrent, noHeading){
 function voyageRow(r){
   const bits = [];
   if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
-  if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true || r.outcome === "returned" ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
+  if (r.starRock) bits.push(`iceberg “${r.starRock}” ${r.rockReturned === true || r.outcome === "returned" ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
   if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
   if (!bits.length) bits.push("No star this voyage");
   const d = h("div", { class:"voy-d" });
@@ -1476,9 +1484,9 @@ function healthSection(rows){
     ["Votes used", "cast ÷ available", r => H(r) ? `${H(r).votesCast} of ${H(r).votesAvail}` : "—"],
     ["Actions", "created · with owner", r => H(r) ? `${H(r).actionsCreated} · ${H(r).actionsOwned} owned` : "—"],
     ["Actions done", "last retro's, marked Done", r => H(r) && H(r).prevTotal ? `${H(r).prevDone} of ${H(r).prevTotal}` : "—", r => H(r) && HEALTH_WARN.done(H(r))],
-    ["Fixes that held", "Done, and the rock didn't come back", r => H(r) && H(r).prevDone ? `${H(r).held} of ${H(r).prevDone}` : "—"],
-    ["Returned rocks", "this retro", r => H(r) ? (H(r).returned.length ? H(r).returned.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0") : "—", r => H(r) && HEALTH_WARN.returned(H(r))],
-    ["Recurring rocks", "3+ retros in a row", (r, i) => { const rec = recurringRocks(rows.slice(0, from + i + 1)); return rec.length ? rec.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0"; },
+    ["Fixes that held", "Done, and the iceberg didn't come back", r => H(r) && H(r).prevDone ? `${H(r).held} of ${H(r).prevDone}` : "—"],
+    ["Returned icebergs", "this retro", r => H(r) ? (H(r).returned.length ? H(r).returned.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0") : "—", r => H(r) && HEALTH_WARN.returned(H(r))],
+    ["Recurring icebergs", "3+ retros in a row", (r, i) => { const rec = recurringRocks(rows.slice(0, from + i + 1)); return rec.length ? rec.map(x => `“${x.text}” ×${x.streak}`).join(", ") : "0"; },
       (r, i) => recurringRocks(rows.slice(0, from + i + 1)).length > 0],
     ["Sea at the end", "", r => H(r) ? H(r).sea : "—"],
   ];
@@ -1487,7 +1495,7 @@ function healthSection(rows){
     h("p", { class:"muted", text:"Only you see this. Nothing here is a survey or a score; it comes from what the crew already did." }),
     h("div", { class:"stats" },
       stat("Star hit rate", scored.length ? `${met} of ${scored.length}` : "—", "stars met"),
-      stat("Recurring rocks", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0)),
+      stat("Recurring icebergs", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0)),
     h("div", { class:"health-wrap" }, h("table", { class:"log health" },
       h("thead", {}, h("tr", {}, h("th", { scope:"col", text:"" }), last.map(r => h("th", { scope:"col", text: (r.ship || "Unnamed") + (r.current ? " (now)" : "") })))),
       h("tbody", {}, metrics.map(([label, note, val, warn]) => h("tr", {},
@@ -1505,12 +1513,12 @@ function starCheckSection(where){
   if (!S.star) return [h("h3", { text:"Star check" }), h("p", { class:"muted", text:"No star to check this time." })];
   const out = [h("h3", { text:"Star check" }), h("p", { class:"starline", text:`★ ${S.star}` })];
   if (S.starRock){
-    out.push(h("p", { class:"muted" }, "Tied to the rock ", h("b", { text:`“${S.starRock}”` }), ". The star is met if that rock doesn't come back."));
+    out.push(h("p", { class:"muted" }, "Tied to the iceberg ", h("b", { text:`“${S.starRock}”` }), ". The star is met if that iceberg doesn't come back."));
     if (where === "harbor"){
       const m = rockMatches(), ret = rockReturnedOf();
       out.push(m.length
-        ? h("div", {}, h("p", { class:"muted", text:"These cards look like the same rock:" }), h("ul", { class:"matches" }, m.map(c => h("li", { text: c.text }))))
-        : h("p", { class:"muted", text:"No matching rock or barnacle this retro." }));
+        ? h("div", {}, h("p", { class:"muted", text:"These cards look like the same iceberg:" }), h("ul", { class:"matches" }, m.map(c => h("li", { text: c.text }))))
+        : h("p", { class:"muted", text:"No matching iceberg or barnacle this retro." }));
       if (isFac()){
         out.push(h("div", { class:"votebar" },
           h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === true), text:"It came back", onclick: () => dispatch({ type:"rockReturned", value: true }) }),
@@ -1521,7 +1529,7 @@ function starCheckSection(where){
       out.push(h("p", { class:"muted", text:"We'll see if it comes back once cards are in. Confirm at the Harbor." }));
     }
   } else {
-    out.push(h("p", { class:"muted", text:"No rock tied to this star, so the team vote decides." }));
+    out.push(h("p", { class:"muted", text:"No iceberg tied to this star, so the team vote decides." }));
   }
   out.push(h("p", { text:"Did we hit it? Everyone votes." }), voteButtons());
   if (where === "harbor") out.push(h("p", {}, "Result: ", badge(starOutcome(), true)));
@@ -1533,20 +1541,20 @@ function nextStarSection(){
   if (!isFac()){
     out.push(ns && (ns.text || ns.rock)
       ? h("p", {}, h("span", { class:"starline", text:`★ ${ns.text || "(not worded yet)"}` }), ns.rock ? h("span", { class:"muted", text:` · beats “${ns.rock}”` }) : null)
-      : h("p", { class:"muted", text:"The facilitator is picking the next star from today's rocks." }));
+      : h("p", { class:"muted", text:"The facilitator is picking the next star from today's icebergs." }));
     return out;
   }
-  out.push(h("p", { class:"muted", text:"Pick the rock or barnacle you most want gone. Then write the star as what you'll see when it's gone." }));
+  out.push(h("p", { class:"muted", text:"Pick the iceberg or barnacle you most want gone. Then write the star as what you'll see when it's gone." }));
   const top = problems(S.cards).slice().sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 6);
   if (top.length){
-    out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Rock for the next star" }, top.map(c => {
+    out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Iceberg for the next star" }, top.map(c => {
       const on = ns && ns.rockId === c.id;
       return h("button", { class:"btn small", type:"button", "aria-pressed": String(!!on),
         onclick: () => dispatch({ type:"nextStar", rerender:true, nextStar: on ? { ...ns, rockId:null, rock:null } : { text: ns?.text || "", rockId: c.id, rock: c.text } }) },
         h("span", { class:"radio", "aria-hidden":"true" }), h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
     })));
   } else {
-    out.push(h("p", { class:"muted", text:"No rocks this retro. You can still write a star; the team vote will decide next time." }));
+    out.push(h("p", { class:"muted", text:"No icebergs this retro. You can still write a star; the team vote will decide next time." }));
   }
   const inp = h("input", { class:"textin", id:"nextStarIn", "data-fk":"nextStar", maxlength:80, placeholder:"PR reviews done within 24 hours", "aria-label":"Next star", value: ns?.text || "" });
   let t = null;
@@ -1563,7 +1571,7 @@ function nextStarSection(){
 const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
 const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
 const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
-const TYPES = [["wind","Wind"],["rock","Rock"],["barnacle","Barnacle"]];
+const TYPES = [["wind","Wind"],["rock","Iceberg"],["barnacle","Barnacle"]];
 const TOP_N = 5;
 const stage = $("stage");
 const myCards = new Set();
@@ -1709,8 +1717,8 @@ function tile(c, mode){
   if (c.returned && S.phase >= 2){
     li.append(h("div", { class:"back-row" },
       h("span", { class:"badge bad inline", text: returnedLabel(c.returned) }),
-      c.returned.wasStar ? h("span", { class:"muted", text:"the star's rock" }) : c.returned.hadAction ? h("span", { class:"muted", text:"had an action item" }) : null,
-      isFac() ? h("button", { class:"btn small ghost", type:"button", "data-fk":"ns" + c.id, "aria-label":`Not the same rock: ${c.text}`, text:"Not the same rock",
+      c.returned.wasStar ? h("span", { class:"muted", text:"the star's iceberg" }) : c.returned.hadAction ? h("span", { class:"muted", text:"had an action item" }) : null,
+      isFac() ? h("button", { class:"btn small ghost", type:"button", "data-fk":"ns" + c.id, "aria-label":`Not the same iceberg: ${c.text}`, text:"Not the same iceberg",
         onclick: () => dispatch({ type:"notSame", cardId: c.id }) }) : null));
   }
   if (!mode) return li;
@@ -1795,10 +1803,10 @@ const TOURS = {
     ["Five steps, you steer", () => [
       h("p", { text: PHASES.map(p => p.name).join(" → ") }),
       h("p", { text:"Only you move everyone on, with Next. The timer is a guide: nothing moves on by itself." })]],
-    ["Speed, sea and returning rocks", () => [h("ul", { class:"tour-list" },
+    ["Speed, sea and returning icebergs", () => [h("ul", { class:"tour-list" },
       h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards, votes and owned action items."),
-      h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Rocks make it rough. They never slow the ship."),
-      h("li", {}, "A ", h("b", { text:"darker rock" }), " rising from the water is a problem that came back."))]],
+      h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Icebergs make it rough. They never slow the ship."),
+      h("li", {}, "A ", h("b", { text:"bigger iceberg" }), " rising from the water is a problem that came back."))]],
     ["Try it first", () => [
       h("p", { text:"Simulated people add cards in Sail and vote in Navigate, so you can see the ship react before your team joins." }),
       h("button", { class:"btn primary", type:"button", id:"tourSim", text:"Simulate team", onclick: () => { closeTour(); if (!simTimer) toggleSim(); } })]],
@@ -1806,14 +1814,14 @@ const TOURS = {
   participant: [
     ["Three kinds of cards", () => [h("ul", { class:"tour-list" },
       h("li", { class:"tour-type" }, typeIcon("wind", 20), h("span", {}, h("b", { text:"Wind" }), ": what helped us."), h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
-      h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Rock" }), ": what blocked us."), h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
+      h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Iceberg" }), ": what blocked us."), h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
       h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Barnacle" }), ": small things that slow us down."), h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
     ["Every card moves the ship", () => [
-      h("p", { text:"Every card you add makes the ship faster. Rocks make the sea rough, they never slow the ship." }),
+      h("p", { text:"Every card you add makes the ship faster. Icebergs make the sea rough, they never slow the ship." }),
       h("p", { text:"You can post anonymously." })]],
     ["Votes and action items", () => [
       h("p", { text:`You have ${C.VOTES_PER_PERSON} votes in Navigate. Put them on what matters most.` }),
-      h("p", { text:"Rocks clear when someone owns an action item for them." })]],
+      h("p", { text:"Icebergs melt when someone owns an action item for them." })]],
   ],
 };
 let tourKey = null, tourI = 0, tourReturn = null;
@@ -1861,7 +1869,7 @@ function stepHint(p){
   if (seen.includes(PHASES[p].key)) return null;
   sset("rtw-seen-steps", [...seen, PHASES[p].key]);
   const text = p === 0 && !S.star ? "Name the ship, then check in as the crew comes aboard."
-    : p === 4 && !S.star ? "Tie the next star to a rock, then save the voyage."
+    : p === 4 && !S.star ? "Tie the next star to an iceberg, then save the voyage."
     : PHASES[p].hint;
   return h("p", { class:"step-hint", text });
 }
