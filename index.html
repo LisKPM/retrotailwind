@@ -689,7 +689,8 @@ function stepSpeed(v, target, dt){
 
 /* ================================================================
    STATE
-   team = { id, name, fkHash, config, sessions:[archived], current: session }
+   team = { id, name, fkHash, config, sessions:[archived], current: session, trends }
+   trends = { fixesHeld: { voyages:[{ ship, endedAt, done, held, rate }], done, held, rate } } (data only)
    session = { id, ship, star, starRock, starVotes, rockReturned, nextStar, contributors,
                phase, cards, silentUntil, history, startedAt }
    star      = the goal checked in THIS retro (set at the previous Harbor)
@@ -788,6 +789,15 @@ function retroHealth(s, cfg = C, roomNow = 0){
     returned: s.cards.filter(c => c.returned).map(c => ({ text: c.text, streak: c.returned.streak })),
     sea: computeSea(s.cards, cfg).word
   };
+}
+/* Fixes that held, across sprints (pure, data only: nothing in the UI reads it).
+   Kept on team.trends for a later quarterly report or a server query.
+   A fix "held" when last retro's action was marked Done and its rock did not come back. */
+function fixesHeldTrend(sessions){
+  const voyages = sessions.filter(v => v.health && v.health.prevDone > 0)
+    .map(v => ({ ship: v.ship || "", endedAt: v.endedAt || null, done: v.health.prevDone, held: v.health.held, rate: v.health.held / v.health.prevDone }));
+  const done = voyages.reduce((a, v) => a + v.done, 0), held = voyages.reduce((a, v) => a + v.held, 0);
+  return { voyages, done, held, rate: done ? held / done : null };
 }
 /* Warning rules, and nothing else */
 const HEALTH_WARN = {
@@ -913,6 +923,7 @@ function apply(a, local){
       break;
     case "session.next":
       team.sessions = a.sessions; team.current = S = a.session;
+      if (a.trends) team.trends = a.trends;
       history = []; centerMode = null; myCards.clear();
       rebuildAll();
       plainToast("New retro started at the Dock");
@@ -1699,7 +1710,8 @@ function nextRetro(){
   const star = ns.text || (ns.rock ? `“${ns.rock}” stays gone` : "");
   const prevActions = S.cards.filter(c => c.scraped).map(c => ({ id: c.id, text: c.text, owner: c.owner || null, done: null }));
   const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null, prevActions });
-  dispatch({ type:"session.next", sessions: [...team.sessions, summary], session });
+  const sessions = [...team.sessions, summary];
+  dispatch({ type:"session.next", sessions, session, trends: { fixesHeld: fixesHeldTrend(sessions) } });
 }
 
 /* ================================================================
