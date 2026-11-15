@@ -249,6 +249,20 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .sheet h1 span{color:var(--wind)}
 .sheet label{display:grid;gap:6px;font-size:14px}
 
+/* onboarding */
+.tour-sheet{width:min(480px,100%)}
+.tour-sheet p{margin:0 0 8px}
+.tour-sheet .center-actions{justify-content:flex-start;align-items:center}
+.tour-sheet .grow{flex:1}
+ul.tour-list{margin:0;padding-left:20px;display:grid;gap:8px}
+.tour-ex{display:block;color:var(--ui-muted);font-size:13px;font-style:italic}
+.step-hint{margin:-4px 18px 6px;font-size:13.5px;color:var(--star)}
+ul.checklist{list-style:none;margin:2px 0 8px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;font-size:14px}
+ul.checklist li{display:flex;gap:8px;align-items:center}
+ul.checklist .tick{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:1px solid var(--ui-line)}
+ul.checklist li.done{color:var(--ui-muted)}
+ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:transparent}
+
 /* toasts */
 #toasts{position:fixed;top:60px;right:16px;display:grid;justify-items:end;gap:6px;z-index:25;pointer-events:none;max-width:min(360px,calc(100vw - 32px))}
 .toast{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:99px;padding:6px 14px;font-size:13.5px;
@@ -422,6 +436,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
     <li>A <b>darker rock</b> is a problem that came back.</li>
     <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
   </ul>
+  <p style="margin:0;padding:0 16px 14px"><button class="btn small" type="button" id="showTour">Show the tour</button></p>
 </div>
 
 <section id="center" aria-labelledby="centerTitle" hidden>
@@ -449,6 +464,20 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
     <p class="muted" style="margin:0">We'll remember it in this browser.</p>
     <button class="btn primary" type="submit">Join</button>
   </form>
+</div>
+
+<div id="tour" class="overlay" role="dialog" aria-modal="true" aria-labelledby="tourTitle" hidden>
+  <div class="sheet tour-sheet">
+    <p class="muted" id="tourCount" style="margin:0"></p>
+    <h1 id="tourTitle"></h1>
+    <div id="tourBody"></div>
+    <div class="center-actions" style="margin-top:4px">
+      <button class="btn ghost" type="button" id="tourSkip">Skip tour</button>
+      <span class="grow"></span>
+      <button class="btn" type="button" id="tourBack">Back</button>
+      <button class="btn primary" type="button" id="tourNext">Next</button>
+    </div>
+  </div>
 </div>
 
 <div id="toasts" aria-hidden="true"></div>
@@ -1278,7 +1307,7 @@ async function copy(text, btn){
 function linkRow(label, url, note){
   const inp = h("input", { readonly:true, value:url, "aria-label": label, onfocus: e => e.target.select() });
   const btn = h("button", { class:"btn small", type:"button", text:"Copy" });
-  btn.onclick = async () => { if (!(await copy(url, btn))){ inp.focus(); inp.select(); } };
+  btn.onclick = async () => { if (url === teamLink()) markShared(); if (!(await copy(url, btn))){ inp.focus(); inp.select(); } };
   return [h("div", { class:"muted", text: label }), h("div", { class:"linkrow" }, inp, btn), note ? h("p", { class:"muted", text: note }) : null];
 }
 function linksSection(){
@@ -1477,6 +1506,7 @@ function buildStage(p){
   body.append(h("div", { id:"stageDyn" }));
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" })),
+    stepHint(p) || "",
     body,
     h("div", { class:"stage-foot" },
       fac && p > 0 ? h("button", { class:"btn small ghost", type:"button", text:"← Back", onclick: () => gotoPhase(p - 1) }) : null,
@@ -1492,7 +1522,7 @@ function planEditor(){
     h("h3", { text:"Minutes per step" }), h("div", { class:"plan-grid" }, [1,2,3,4].map(p => {
     const key = STEP_MIN_KEYS[p], id = "min-" + p;
     const inp = h("input", { type:"number", id, class:"min-in", min:1, max:60, step:1, value: C[key], "data-key": key });
-    inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; pushConfig(); };
+    inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; sset("rtw-mins-" + team.id, 1); pushConfig(); };
     return h("div", { class:"plan-row" }, h("label", { for:id, text: PHASES[p].name }), h("span", { class:"min-wrap" }, inp, " min"));
   })));
 }
@@ -1546,7 +1576,7 @@ function stageStat(p){
   return "";
 }
 function stageContent(p){
-  if (p === 0) return [...whereWeLeftOff(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+  if (p === 0) return [...dockChecklist(), ...whereWeLeftOff(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
     h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
   if (p === 1){
     const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
@@ -1668,6 +1698,85 @@ function nextRetro(){
   const prevActions = S.cards.filter(c => c.scraped).map(c => ({ id: c.id, text: c.text, owner: c.owner || null, done: null }));
   const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null, prevActions });
   dispatch({ type:"session.next", sessions: [...team.sessions, summary], session });
+}
+
+/* ================================================================
+   Onboarding: short, skippable tours, remembered in this browser
+   ================================================================ */
+const TOURS = {
+  facilitator: [
+    ["Two links", () => [
+      h("p", { text:"Share the team link with everyone. Keep the facilitator link private: it moves the steps and sees retro health." }),
+      ...linkRow("Team link (share with everyone)", teamLink()), ...linkRow("Facilitator link (keep private)", facLink())]],
+    ["Five steps, you steer", () => [
+      h("p", { text: PHASES.map(p => p.name).join(" → ") }),
+      h("p", { text:"Only you move everyone on, with Next. The timer is a guide: nothing moves on by itself." })]],
+    ["Speed, sea and returning rocks", () => [h("ul", { class:"tour-list" },
+      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards, votes and owned action items."),
+      h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Rocks make it rough. They never slow the ship."),
+      h("li", {}, "A ", h("b", { text:"darker rock" }), " rising from the water is a problem that came back."))]],
+    ["Try it first", () => [
+      h("p", { text:"Simulated people add cards in Sail and vote in Navigate, so you can see the ship react before your team joins." }),
+      h("button", { class:"btn primary", type:"button", id:"tourSim", text:"Simulate team", onclick: () => { closeTour(); if (!simTimer) toggleSim(); } })]],
+  ],
+  participant: [
+    ["Three kinds of cards", () => [h("ul", { class:"tour-list" },
+      h("li", {}, h("b", { text:"🌬 Wind" }), ": what helped us.", h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
+      h("li", {}, h("b", { text:"🪨 Rock" }), ": what blocked us.", h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
+      h("li", {}, h("b", { text:"🐚 Barnacle" }), ": small things that slow us down.", h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
+    ["Every card moves the ship", () => [
+      h("p", { text:"Every card you add makes the ship faster. Rocks make the sea rough, they never slow the ship." }),
+      h("p", { text:"You can post anonymously." })]],
+    ["Votes and action items", () => [
+      h("p", { text:`You have ${C.VOTES_PER_PERSON} votes in Navigate. Put them on what matters most.` }),
+      h("p", { text:"Rocks clear when someone owns an action item for them." })]],
+  ],
+};
+let tourKey = null, tourI = 0, tourReturn = null;
+function openTour(key){
+  tourKey = key; tourI = 0; tourReturn = document.activeElement;
+  $("tour").hidden = false; renderTour();
+}
+function renderTour(){
+  const cards = TOURS[tourKey], [title, body] = cards[tourI];
+  $("tourCount").textContent = `${tourI + 1} of ${cards.length}`;
+  $("tourTitle").textContent = title;
+  $("tourBody").replaceChildren(...body().filter(Boolean));
+  $("tourBack").hidden = tourI === 0;
+  $("tourNext").textContent = tourI === cards.length - 1 ? "Done" : "Next";
+  $("tourNext").focus();
+}
+function closeTour(){
+  if ($("tour").hidden) return;
+  sset("rtw-tour-" + tourKey, 1);
+  $("tour").hidden = true;
+  if (tourReturn && tourReturn.isConnected) tourReturn.focus();
+}
+$("tourNext").onclick = () => { if (tourI < TOURS[tourKey].length - 1){ tourI++; renderTour(); } else closeTour(); };
+$("tourBack").onclick = () => { if (tourI > 0){ tourI--; renderTour(); } };
+$("tourSkip").onclick = closeTour;
+$("showTour").onclick = () => { setHelp(false); openTour(role); };
+function maybeTour(){ if (!sget("rtw-tour-" + role)) openTour(role); }
+
+/* Facilitator's first Dock: a checklist that ticks itself */
+const markShared = () => { sset("rtw-shared-" + team.id, 1); renderStage(); };
+function dockChecklist(){
+  if (!isFac() || team.sessions.length || S.phase !== 0) return [];
+  const items = [
+    ["Name the ship", !!S.ship],
+    ["Share the team link", !!sget("rtw-shared-" + team.id)],
+    ["Set minutes per step", !!sget("rtw-mins-" + team.id)],
+    ["Cast off", S.phase > 0],
+  ];
+  return [h("h3", { text:"Before you cast off" }), h("ul", { class:"checklist", "aria-label":"Checklist" }, items.map(([label, done]) =>
+    h("li", { class: done ? "done" : null }, h("span", { class:"tick", "aria-hidden":"true", text: done ? "✓" : "" }), h("span", { text: label + (done ? " (done)" : "") }))))];
+}
+/* Each step's hint shows once per person, the first time they see that step */
+function stepHint(p){
+  const seen = sget("rtw-seen-steps") || [];
+  if (seen.includes(PHASES[p].key)) return null;
+  sset("rtw-seen-steps", [...seen, PHASES[p].key]);
+  return h("p", { class:"step-hint", text: PHASES[p].hint });
 }
 
 /* ================================================================
@@ -1970,6 +2079,7 @@ function start(){
   hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
   addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
   requestAnimationFrame(frame);
+  maybeTour();
 }
 
 /* ================================================================
@@ -1986,6 +2096,7 @@ $("mTune").onclick = () => togglePanel("tunePanel");
 const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
 $("logBtn").onclick = openLog; $("mLog").onclick = openLog;
 $("copyLink").onclick = async () => {
+  markShared();
   if (await copy(teamLink(), $("copyLink"))) plainToast("Team link copied. Bookmark it to keep your star history.");
   else { centerMode = "links"; renderModal(); }
 };
@@ -2000,6 +2111,7 @@ document.querySelectorAll(".help-btn").forEach(b => b.onclick = () => setHelp($(
 $("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
+  if (!$("tour").hidden){ closeTour(); return; }
   if (!$("helpPanel").hidden){ setHelp(false); return; }
   setPanel("tunePanel", false);
   if (!$("center").hidden) $("centerClose").click();
