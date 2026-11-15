@@ -185,7 +185,7 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 #speedo.hidden{display:none}
 .knots{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
 .knots small{font-size:13px;font-weight:500;color:var(--ui-muted)}
-.band{font-size:12px;color:var(--ui-muted)}
+.band{font-size:12px;color:var(--ui-muted);white-space:nowrap}
 #speedHidden{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:13px;color:var(--ui-muted);
   background:var(--ui-bg);padding:6px 8px 6px 12px;border-radius:99px;z-index:12;display:flex;align-items:center;gap:8px}
 .sea-word{color:var(--ui-text);font-weight:600}
@@ -290,6 +290,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   #speedo{bottom:calc(70px + env(safe-area-inset-bottom));padding:5px 12px;gap:10px}
   #speedo svg.gauge{width:58px;height:34px}
   #speedo svg.spark{display:none}
+  #speedo .band-speed{display:none}
   .knots{font-size:21px}
   #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
   #helpPanel{bottom:calc(134px + env(safe-area-inset-bottom))}
@@ -416,7 +417,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   </svg>
   <div>
     <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
-    <div class="band"><span id="band">Becalmed</span> · Sea <b class="sea-word" data-sea>Calm</b></div>
+    <div class="band"><span class="band-speed"><span id="band">Becalmed</span> · </span>Sea <b class="sea-word" data-sea>Calm</b></div>
   </div>
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button>
   <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
