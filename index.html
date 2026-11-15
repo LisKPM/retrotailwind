@@ -154,6 +154,9 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 .prev-item .grow{flex:1;min-width:160px}
 .prev-item .votebar{margin:0}
 #stage h2.sub-h{font-size:15px;margin:8px 0 2px;color:var(--star)}
+.card.picked{outline:2px dashed var(--focus);outline-offset:2px}
+ul.merged{list-style:none;margin:-2px 0 6px;padding:0 0 0 10px;border-left:2px solid color-mix(in srgb,var(--c) 45%,transparent);display:grid;gap:3px;font-size:13px;color:var(--ui-muted)}
+ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-between}
 .back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
@@ -698,6 +701,7 @@ function stepSpeed(v, target, dt){
    nextStar  = { rockId, rock, text } picked at this Harbor for the next retro
    prevActions = [{ id, text, owner, done: null|true|false }] last retro's action items
    card.owner  = crew name owning the action item (card.scraped = it is an action item)
+   card.merged = cards the facilitator grouped into this one (see CARD GROUPING)
    ================================================================ */
 const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
 let reduced = reducedMQ.matches;
@@ -754,7 +758,44 @@ function findReturning(text, { starRock = null, sessions = [], prevActions = [] 
 const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th","st","nd","rd"][n % 10] || "th");
 const returnedLabel = r => r.streak >= 2 ? `Back again · ${ordinal(r.streak)} retro in a row` : "Back again";
 const tally = (v = {}) => { const a = Object.values(v); return { yes: a.filter(x => x === "yes").length, no: a.filter(x => x === "no").length }; };
-function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !c.notSame && similar(c.text, s.starRock)) : []; }
+function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !c.notSame && cardTexts(c).some(t => similar(t, s.starRock))) : []; }
+
+/* ================================================================
+   CARD GROUPING (pure — becomes lib/group.ts). Facilitator only.
+   A card grouped into another disappears from the board and lives in
+   into.merged, keeping its own text, author and votes so it can be taken out again.
+   Votes add up (nobody loses or gains a vote). A group is "returned" if any card in it is.
+   ================================================================ */
+const cardTexts = c => [c.text, ...(c.merged || []).map(k => k.text)];
+const bestReturned = list => list.filter(Boolean).reduce((a, r) => !a || r.streak > a.streak ? r : a, null);
+function addVotes(a = {}, b = {}, sign = 1){
+  const o = { ...a };
+  for (const [k, n] of Object.entries(b)){ const v = (o[k] || 0) + sign * n; if (v > 0) o[k] = v; else delete o[k]; }
+  return o;
+}
+const canGroup = (card, into) => !!card && !!into && card.id !== into.id && card.type === into.type && !card.scraped && !into.scraped;
+function groupCards(cards, cardId, intoId){
+  const card = cards.find(c => c.id === cardId), into = cards.find(c => c.id === intoId);
+  if (!canGroup(card, into)) return cards;
+  const kids = card.merged || [];
+  const own = { ...card, votes: kids.reduce((v, k) => addVotes(v, k.votes, -1), card.votes), returned: "returnedOwn" in card ? card.returnedOwn : (card.returned || null) };
+  delete own.merged; delete own.returnedOwn;
+  const returnedOwn = "returnedOwn" in into ? into.returnedOwn : (into.returned || null);
+  const merged = [...(into.merged || []), own, ...kids];
+  const next = { ...into, merged, votes: addVotes(into.votes, card.votes), returnedOwn,
+    returned: into.notSame ? null : bestReturned([returnedOwn, ...merged.map(k => k.returned)]) };
+  return cards.filter(c => c.id !== cardId).map(c => c.id === intoId ? next : c);
+}
+function ungroupCard(cards, intoId, childId){
+  const into = cards.find(c => c.id === intoId);
+  const kid = into && (into.merged || []).find(k => k.id === childId);
+  if (!kid) return cards;
+  const merged = into.merged.filter(k => k.id !== childId);
+  const next = { ...into, votes: addVotes(into.votes, kid.votes, -1) };
+  if (merged.length){ next.merged = merged; next.returned = into.notSame ? null : bestReturned([into.returnedOwn, ...merged.map(k => k.returned)]); }
+  else { delete next.merged; next.returned = into.notSame ? null : (into.returnedOwn || null); delete next.returnedOwn; }
+  return cards.flatMap(c => c.id === intoId ? [next, kid] : [c]);
+}
 function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
 function starOutcome(s = S){
   if (!s.star) return "none";
@@ -785,7 +826,7 @@ function retroHealth(s, cfg = C, roomNow = 0){
     votesCast, votesAvail: present * cfg.VOTES_PER_PERSON,
     actionsCreated: acts.length, actionsOwned: acts.filter(c => c.owner).length,
     prevDone: done.length, prevTotal: prev.length,
-    held: done.filter(a => !probs.some(c => similar(c.text, a.text))).length,
+    held: done.filter(a => !probs.some(c => cardTexts(c).some(t => similar(t, a.text)))).length,
     returned: s.cards.filter(c => c.returned).map(c => ({ text: c.text, streak: c.returned.streak })),
     sea: computeSea(s.cards, cfg).word
   };
@@ -878,6 +919,20 @@ function apply(a, local){
     case "present":
       S.peakPresent = Math.max(S.peakPresent || 0, a.n);
       break;
+    case "group": {
+      const next = groupCards(S.cards, a.cardId, a.intoId); if (next === S.cards) return;
+      S.cards = next; groupPick = null;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      plainToast("Cards grouped");
+      break;
+    }
+    case "ungroup": {
+      const next = ungroupCard(S.cards, a.cardId, a.childId); if (next === S.cards) return;
+      S.cards = next;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      plainToast("Card taken out of the group");
+      break;
+    }
     case "notSame": {
       const c = byId(a.cardId); if (!c) return;
       c.returned = null; c.notSame = true;
@@ -886,7 +941,7 @@ function apply(a, local){
       break;
     }
     case "phase":
-      S.phase = a.phase; S.phaseStartedAt = a.startedAt || 0; S.phaseMinutes = a.minutes || 0;
+      S.phase = a.phase; S.phaseStartedAt = a.startedAt || 0; S.phaseMinutes = a.minutes || 0; groupPick = null;
       renderPhase(); renderStage(); centerMode = null; renderModal();
       if (!local) announce(`Step ${a.phase + 1}: ${PHASES[a.phase].name}`);
       break;
@@ -1337,7 +1392,7 @@ function currentSummary(){
     rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star && rockReturnedOf() !== true ? "pending" : starOutcome(),
     finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
     counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
-    rocks: problems(S.cards).map(c => c.text),
+    rocks: problems(S.cards).flatMap(cardTexts),
     participation: S.phase === 0 ? null : participationOf(),
     actions: S.cards.filter(c => c.scraped).map(c => c.text),
     actionItems: S.cards.filter(c => c.scraped).map(c => ({ text: c.text, owner: c.owner || null })),
@@ -1500,6 +1555,7 @@ const TOP_N = 5;
 const stage = $("stage");
 const myCards = new Set();
 let builtPhase = null, composeType = "wind";
+let groupPick = null; // facilitator's card waiting to be grouped (this tab only, not shared)
 
 function gotoPhase(p){ dispatch({ type:"phase", phase: p, startedAt: Date.now(), minutes: stepMin(p) }); }
 function goNext(){ if (S.phase < 4) gotoPhase(S.phase + 1); else nextRetro(); }
@@ -1637,7 +1693,13 @@ function prevActionsSection(){
       : h("span", { class: "badge inline " + (x.done === true ? "ok" : x.done === false ? "bad" : "neutral"), text: x.done === true ? "Done" : x.done === false ? "Not done" : "Not checked yet" }))))];
 }
 function tile(c, mode){
-  const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : "") + (groupPick === c.id ? " picked" : ""), style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  if (c.merged && S.phase >= 2){
+    li.append(h("ul", { class:"merged", "aria-label":`Grouped with “${c.text}”` }, c.merged.map(k => h("li", {},
+      h("span", { text: k.text }),
+      isFac() ? h("button", { class:"btn small ghost", type:"button", "data-fk":"u" + k.id, "aria-label":`Take out of the group: ${k.text}`, text:"Take out",
+        onclick: () => dispatch({ type:"ungroup", cardId: c.id, childId: k.id }) }) : null))));
+  }
   if (c.returned && S.phase >= 2){
     li.append(h("div", { class:"back-row" },
       h("span", { class:"badge bad inline", text: returnedLabel(c.returned) }),
@@ -1648,6 +1710,8 @@ function tile(c, mode){
   if (!mode) return li;
   const total = totalVotes(c), mine = c.votes[me.id] || 0;
   const meta = h("div", { class:"meta" }, h("span", { class:"author" }));
+  const gb = isFac() && (mode === "vote" || mode === "course") ? groupButton(c) : null;
+  if (gb) meta.append(gb);
   if (mode === "vote"){
     meta.append(h("div", { class:"vote" },
       h("button", { type:"button", "data-fk":"m" + c.id, "aria-label":`Remove my vote: ${c.text}`, text:"−", disabled: !mine, onclick: () => myVote(c.id, -1) }),
@@ -1671,6 +1735,18 @@ function tile(c, mode){
   }
   li.append(meta);
   return li;
+}
+
+/* Grouping: press Group on one card, then Group here on the card it belongs with (same column). */
+function groupButton(c){
+  const picked = groupPick && byId(groupPick);
+  if (!picked) return h("button", { class:"btn small ghost", type:"button", "data-fk":"g" + c.id, "aria-label":`Group: ${c.text}`, text:"Group",
+    onclick: () => { groupPick = c.id; renderStage(); announce(`Pick the card to group “${c.text}” with. Escape cancels.`); } });
+  if (picked.id === c.id) return h("button", { class:"btn small", type:"button", "data-fk":"g" + c.id, "aria-pressed":"true", "aria-label":`Cancel grouping: ${c.text}`, text:"Cancel",
+    onclick: () => { groupPick = null; renderStage(); } });
+  if (!canGroup(picked, c)) return null;
+  return h("button", { class:"btn small primary", type:"button", "data-fk":"g" + c.id, "aria-label":`Group “${picked.text}” into: ${c.text}`, text:"Group here",
+    onclick: () => dispatch({ type:"group", cardId: picked.id, intoId: c.id }) });
 }
 
 /* Step timer: counts down, then keeps counting as overtime. Nothing moves on by itself. */
@@ -2154,6 +2230,7 @@ $("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (!$("tour").hidden){ closeTour(); return; }
+  if (groupPick){ groupPick = null; renderStage(); return; }
   if (!$("helpPanel").hidden){ setHelp(false); return; }
   setPanel("tunePanel", false);
   if (!$("center").hidden) $("centerClose").click();
