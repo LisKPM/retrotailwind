@@ -183,6 +183,7 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 #speedo{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ui-bg);backdrop-filter:blur(10px);
   border:1px solid var(--ui-line);border-radius:var(--radius);padding:8px 14px;display:flex;gap:14px;align-items:center;z-index:12}
 #speedo.hidden{display:none}
+#speedo svg.spark{display:none} /* the speed chart made the scene busy */
 .knots{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
 .knots small{font-size:13px;font-weight:500;color:var(--ui-muted)}
 .band{font-size:12px;color:var(--ui-muted);white-space:nowrap}
@@ -538,7 +539,7 @@ const DEFAULTS = {
   VOTE_FACTOR: 0.25, ROCK_TROUBLE: 1.5, BARNACLE_TROUBLE: 0.5, UNOWNED_TROUBLE: 0.5, RETURN_STEP: 0.5, RETURN_CAP: 2.5,
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
-  MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, MAX_ROCK_SPRITES: 8, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
+  MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, MAX_ROCK_SPRITES: 5, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
   SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15, SIM_QUIET_RATE: 0.15,
   SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
@@ -973,7 +974,7 @@ for (const w of WAVES){
   w.off = Math.random() * w.len;
 }
 const clouds = [];
-for (let i=0;i<5;i++){
+for (let i=0;i<3;i++){
   const g = el("g", { opacity: .5 + Math.random()*.3 }, $("clouds"));
   const s = .6 + Math.random()*.8;
   [[0,0,40],[34,-12,32],[66,2,30],[30,10,34]].forEach(([x,y,r]) => el("circle",{cx:x*s,cy:y*s,r:r*s,fill:"#f6efe6"},g));
@@ -1138,7 +1139,7 @@ function tickRocks(){
   if (reduced) return;
   for (const r of rockEls.values()){
     if (r.clearing) continue;
-    r.inner.setAttribute("transform", `translate(0,${(Math.sin(t * 1.3 + r.phase) * (1.5 + rough * 5)).toFixed(2)}) rotate(${(Math.sin(t * .8 + r.phase) * rough * 6).toFixed(2)})`);
+    r.inner.setAttribute("transform", `translate(0,${(Math.sin(t * 1.3 + r.phase) * (1 + rough * 2.5)).toFixed(2)}) rotate(${(Math.sin(t * .8 + r.phase) * rough * 3).toFixed(2)})`);
   }
 }
 
@@ -1157,7 +1158,7 @@ function gustFx(){
   gustBoost = 1;
   fx(done => {
     const lines = [];
-    for (let i=0;i<5;i++){
+    for (let i=0;i<2;i++){
       const y = 140 + Math.random()*260, len = 120 + Math.random()*120;
       const p = el("path", { d:`M0,0 q${len/2},-14 ${len},0`, fill:"none", stroke:"#ffffff", "stroke-width":3, "stroke-linecap":"round", opacity:0 }, $("gusts"));
       lines.push({ p, y, delay: Math.random()*.3 });
@@ -1185,7 +1186,7 @@ function rockFx(r){
       if (r){ rock.remove(); show(); }
       const splash = el("g", { transform:`translate(${x},${landY})` }, $("splashes"));
       const ring = el("ellipse", { rx: 10, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":3 }, splash);
-      const drops = Array.from({length:9}, () => ({ e: el("circle",{ r: 3+Math.random()*3, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*160, vy:-(120+Math.random()*160) }));
+      const drops = Array.from({length:0}, () => ({ e: el("circle",{ r: 3+Math.random()*3, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*160, vy:-(120+Math.random()*160) }));
       animate(900, p => {
         if (!r){ rock.setAttribute("transform", `translate(${x},${landY + p*40}) rotate(80)`); rock.setAttribute("opacity", 1 - p); }
         ring.setAttribute("rx", 10 + p*90); ring.setAttribute("ry", 3 + p*16); ring.setAttribute("opacity", 1 - p);
@@ -1281,7 +1282,7 @@ function oldRockToast(card){
 function plainToast(text){ const d = pushToast("var(--star)", text); setTimeout(() => fade(d), 3200); announce(text); }
 function pushToast(color, text){
   const box = $("toasts");
-  while (box.children.length >= 3) box.firstChild.remove();
+  while (box.children.length >= 1) box.firstChild.remove(); // one toast at a time keeps the sky quiet
   const d = h("div", { class:"toast" }, h("span", { class:"dot", style:`background:${color}` }), h("span", { text }));
   box.appendChild(d);
   return d;
@@ -1967,7 +1968,7 @@ function frame(now){
 
   // Sea state: waves grow and the boat rocks more as the sea gets rough
   rough += (model.sea.roughness - rough) * (1 - Math.exp(-dt / 1.2));
-  const waveH = 1 + rough * 2.2;
+  const waveH = 1 + rough * 1.5;
   for (const w of WAVES){
     if (!reduced) w.off = (w.off + (speed * C.SCENE_SPEED_SCALE + 10) * w.k * dt) % w.len;
     const dy = reduced ? 0 : Math.sin(t*1.1 + w.k*3) * w.amp * (.25 + rough * .6);
@@ -1994,8 +1995,8 @@ function frame(now){
 
   // Rough sea: the boat sits a little lower and rocks harder. It never slows down.
   sink += (rough * 14 - sink) * (1 - Math.exp(-dt / .8));
-  const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 9);
-  const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
+  const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 6);
+  const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
   boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
 
   const fillTarget = model.sea.windShare * .85 + gustBoost * .35; // sails fill with the share of wind
