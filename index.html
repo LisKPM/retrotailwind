@@ -80,65 +80,50 @@ body.is-fac #titlebar input:focus{background:rgba(255,255,255,.06)}
 .step.done .num{background:rgba(127,214,194,.3);border-color:transparent;color:var(--wind)}
 body.is-fac .step{cursor:pointer}
 body.is-fac .step:hover{color:var(--ui-text)}
-/* phase brief: opens at the start of every phase, minimizes to a slim bar */
-#brief{position:fixed;left:50%;top:150px;transform:translateX(-50%);width:min(600px,calc(100vw - 24px));z-index:22;
-  background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.42);
-  display:flex;flex-direction:column;max-height:calc(100vh - 250px);transition:left .3s ease}
-#brief.min{background:var(--ui-bg);backdrop-filter:blur(10px);box-shadow:0 6px 20px rgba(0,0,0,.28);border-radius:99px;width:auto;max-width:min(600px,calc(100vw - 24px))}
-.brief-head{display:flex;gap:12px;align-items:center;padding:14px 14px 10px 16px}
-#brief.min .brief-head{padding:5px 6px 5px 6px;gap:10px}
-.brief-num{width:34px;height:34px;border-radius:50%;background:var(--wind);color:#0b1a2c;font-weight:800;display:grid;place-items:center;flex:none;font-size:15px}
-#brief.min .brief-num{width:26px;height:26px;font-size:12.5px}
-.brief-titles{flex:1;min-width:0}
-.eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ui-muted)}
-#brief h2{margin:1px 0 0;font-size:20px;line-height:1.2}
-.brief-one{margin:3px 0 0;color:var(--ui-muted);font-size:13.5px}
-#brief.min .eyebrow{display:none}
-#brief.min .brief-titles{display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
-#brief.min h2{font-size:14.5px;margin:0}
-#brief.min .brief-one{margin:0;overflow:hidden;text-overflow:ellipsis;font-size:13px}
-#briefBody{overflow:auto;padding:0 18px 6px 18px;flex:1;min-height:0}
-#brief.min #briefBody,#brief.min .brief-foot{display:none}
-#brief:not(.min) #briefMiniNext{display:none}
-.brief-foot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--ui-line);flex-wrap:wrap}
-.brief-foot .grow{flex:1}
-#brief h3{margin:14px 0 6px;font-size:13px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
-#brief p{margin:6px 0}
-.todo{list-style:none;counter-reset:t;margin:2px 0 10px;padding:0;display:grid;gap:9px}
-.todo li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45}
-.todo li::before{counter-increment:t;content:counter(t);width:21px;height:21px;border-radius:50%;border:1px solid var(--ui-line);
-  display:grid;place-items:center;font-size:11px;color:var(--ui-muted);flex:none;margin-top:0}
-.legend{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
-.chip{font-size:12.5px;padding:3px 10px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
-  border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
-.chip b{color:var(--ui-text);font-weight:600}
-.live-stat{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--ui-text);background:rgba(255,255,255,.07);
-  border-radius:99px;padding:4px 11px;margin:2px 0 8px}
-.tipbox{font-size:13px;color:var(--star);background:rgba(255,229,154,.12);border-radius:10px;padding:8px 10px;margin:8px 0}
+/* timer */
+#phasebar{display:flex;align-items:center;gap:6px}
+#timer{font-size:13px;font-variant-numeric:tabular-nums;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);white-space:nowrap;margin-right:2px}
+#timer.over{background:rgba(232,195,122,.2);color:var(--barnacle)}
+
+/* stage: one simple screen per step */
+#stage{position:fixed;left:50%;transform:translateX(-50%);z-index:16;background:var(--ui-bg-solid);border:1px solid var(--ui-line);
+  border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden}
+#stage.st-dock,#stage.st-harbor{top:152px;width:min(480px,calc(100vw - 24px));max-height:calc(100vh - 252px)}
+#stage.st-sail{bottom:104px;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 260px)}
+#stage.st-nav,#stage.st-course{top:152px;max-height:calc(100vh - 256px);width:min(1100px,calc(100vw - 32px));background:rgba(14,27,48,.95)}
+.stage-head{display:flex;align-items:baseline;gap:12px;padding:14px 18px 8px}
+.stage-head h2{margin:0;font-size:20px}
+.stage-stat{color:var(--ui-muted);font-size:13.5px}
+.stage-body{overflow:auto;padding:0 18px 12px;flex:1;min-height:0}
+.stage-foot{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--ui-line)}
+.stage-foot .grow{flex:1}
 .waiting{font-size:13px;color:var(--ui-muted)}
 .btn.ghost{background:transparent;border-color:transparent}
 .btn.ghost:hover{background:rgba(255,255,255,.08)}
-details.share{border:0;padding:0;margin-top:6px}
-details.share summary{font-weight:500;font-size:13.5px;color:var(--ui-muted);padding:6px 0}
-ol.top{margin:4px 0 8px;padding-left:20px;font-size:13.5px}
-ol.top li{margin:3px 0}
-ol.top .v{color:var(--ui-muted);font-size:12px}
-@media (min-width:761px) and (max-width:1420px){
-  body.cards-open #voyage,body.cards-open #brief{left:calc(50% + 180px)}
-  body.cards-open #brief{width:min(560px,calc(100vw - 400px))}
-  body.cards-open #brief.min{width:auto;max-width:min(560px,calc(100vw - 400px))}
-  body.cards-open .step:not([aria-current="step"]) .nm{display:none}
-}
-
-/* simple mode: no phases, just cards */
-body.simple #phasebar,body.simple #brief{display:none!important}
-body.simple #toasts{top:110px}
+#stage h3{margin:10px 0 6px;font-size:13px;color:var(--ui-muted);font-weight:600}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.course{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.col-h{display:flex;align-items:center;gap:8px;color:var(--ui-text)!important;font-size:14px!important}
+.crew{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
+.crew-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:3px 10px 3px 7px;border-radius:99px;background:rgba(255,255,255,.07)}
+.plan{display:grid;gap:6px;margin:2px 0 12px}
+.plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.min-wrap{color:var(--ui-muted);font-size:13px;white-space:nowrap}
+.min-in{width:58px;padding:5px 7px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right;color:var(--ui-text)}
+.compose{display:grid;gap:10px;padding:2px 0 8px}
+.seg.big label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;font-weight:600}
+.seg.big .ico{font-size:22px}
+.compose-row{display:flex;gap:8px}
+.compose-row .text-in{flex:1;padding:12px;font-size:15px}
+.anon{font-size:13px;color:var(--ui-muted)}
+ul.mine{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;padding:3px 10px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 40%,transparent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* panels */
 aside{position:fixed;top:64px;bottom:16px;width:340px;background:var(--ui-bg);backdrop-filter:blur(10px);
   border:1px solid var(--ui-line);border-radius:var(--radius);display:flex;flex-direction:column;z-index:15;
   transition:transform .3s ease,opacity .3s ease}
-#cardsPanel{left:16px}
 #tunePanel{right:16px}
 aside.closed{transform:translateX(calc(-100% - 24px));opacity:0;pointer-events:none}
 #tunePanel.closed{transform:translateX(calc(100% + 24px))}
@@ -167,7 +152,6 @@ ul.cards{list-style:none;margin:0;padding:0 0 6px}
 .scrape{font-size:12px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
-form#addForm{border-top:1px solid var(--ui-line);padding:10px;display:grid;gap:8px}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .seg input{position:absolute;opacity:0}
 .seg label{text-align:center;padding:7px 4px;border-radius:9px;border:1px solid var(--ui-line);cursor:pointer;font-size:13.5px}
@@ -252,7 +236,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .sheet label{display:grid;gap:6px;font-size:14px}
 
 /* toasts */
-#toasts{position:fixed;top:184px;left:50%;transform:translateX(-50%);display:grid;gap:6px;z-index:25;pointer-events:none;width:max-content;max-width:calc(100vw - 32px)}
+#toasts{position:fixed;top:60px;right:16px;display:grid;justify-items:end;gap:6px;z-index:25;pointer-events:none;max-width:min(360px,calc(100vw - 32px))}
 .toast{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:99px;padding:6px 14px;font-size:13.5px;
   display:flex;align-items:center;gap:8px;animation:toastIn .25s ease;transition:opacity .4s}
 @keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
@@ -270,16 +254,13 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   .step{padding:5px 7px}
   #steps .sep{width:6px}
   .step:not([aria-current="step"]) .nm{display:none}
-  #brief{top:134px;width:calc(100vw - 16px);max-height:calc(100vh - 134px - 150px - env(safe-area-inset-bottom))}
-  #brief.min{max-width:calc(100vw - 16px)}
-  #brief.min .brief-one{display:none}
-  #brief h2{font-size:18px}
-  .brief-foot{padding:10px 12px}
-  #briefBody{padding:0 14px 6px}
-  .brief-foot .grow{display:none}
-  .brief-foot .btn.primary{flex:1 1 100%;order:3;padding:10px}
-  .brief-foot .btn:not(.primary):not(.ghost){flex:1}
-  .brief-foot .waiting{flex:1 1 100%;order:4;text-align:center}
+  #stage.st-dock,#stage.st-harbor{top:132px;width:calc(100vw - 16px);max-height:calc(100vh - 132px - 126px - env(safe-area-inset-bottom))}
+  #stage.st-nav,#stage.st-course{top:132px;max-height:calc(100vh - 132px - 126px - env(safe-area-inset-bottom));width:calc(100vw - 16px)}
+  #stage.st-sail{bottom:calc(126px + env(safe-area-inset-bottom));width:calc(100vw - 16px)}
+  .board,.course{grid-template-columns:1fr}
+  .stage-head{padding:12px 14px 6px}
+  .stage-body{padding:0 14px 10px}
+  .stage-foot .btn.primary{flex:1;padding:10px}
   aside{top:auto;left:0!important;right:0!important;bottom:0;width:auto;height:64vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom)}
   aside.closed,#tunePanel.closed{transform:translateY(105%)}
   #speedo{bottom:calc(70px + env(safe-area-inset-bottom));padding:5px 12px;gap:10px}
@@ -287,8 +268,8 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   #speedo svg.spark{display:none}
   .knots{font-size:21px}
   #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
-  #toasts{top:auto;bottom:calc(132px + env(safe-area-inset-bottom))}
   #center{top:auto;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);max-height:calc(100vh - 140px)}
+  #toasts{top:8px;right:8px;left:8px;max-width:none;justify-items:center}
   #mobileBar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;z-index:14}
   #mobileBar .btn{flex:1;padding:12px;background:var(--ui-bg);backdrop-filter:blur(10px)}
 }
@@ -363,8 +344,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
   <div class="spacer"></div>
   <div id="avatars" aria-label="People in the room"></div>
   <button class="btn" id="copyLink">Copy team link</button>
-  <button class="btn hide-sm" id="logBtn">Logbook</button>
-  <button class="btn hide-sm" id="cardsToggle" aria-expanded="true" aria-controls="cardsPanel">Cards</button>
+  <button class="btn hide-sm" id="logBtn" hidden>Logbook</button>
   <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
 </header>
 
@@ -372,57 +352,18 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 <div id="titlebar" role="group" aria-label="Ship and star">
   <span aria-hidden="true">⛵</span>
   <input id="shipIn" maxlength="60" aria-label="Ship name" placeholder="Name the ship">
-  <span class="arrow" aria-hidden="true">→</span>
-  <span aria-hidden="true" style="color:var(--star)">★</span>
-  <input id="starIn" maxlength="90" aria-label="Star: the team improvement goal" placeholder="Name the star">
+  <span hidden><!-- star: left out for now -->
+  <input id="starIn" maxlength="90" aria-label="Star: the team improvement goal" placeholder="Name the star"></span>
 </div>
 
 <nav id="phasebar" aria-label="Retro phases">
   <ol id="steps"></ol>
+  <span id="timer" role="timer" hidden></span>
 </nav>
 </div>
 
-<section id="brief" aria-labelledby="briefTitle" aria-live="polite">
-  <div class="brief-head">
-    <span class="brief-num" id="briefNum" aria-hidden="true">1</span>
-    <div class="brief-titles">
-      <div class="eyebrow" id="briefEyebrow"></div>
-      <h2 id="briefTitle"></h2>
-      <p class="brief-one" id="briefOne"></p>
-    </div>
-    <button class="btn small primary fac-only" id="briefMiniNext" type="button"></button>
-    <button class="btn small ghost" id="briefToggle" type="button" aria-controls="briefBody" aria-expanded="true">Minimize</button>
-  </div>
-  <div id="briefBody"></div>
-  <div class="brief-foot" id="briefFoot"></div>
-</section>
+<section id="stage" aria-labelledby="stageTitle"></section>
 
-<aside id="cardsPanel" aria-label="Cards">
-  <div class="panel-head">
-    <h2>Cards</h2>
-    <button class="btn small" id="closeCards" aria-label="Close cards panel">✕</button>
-  </div>
-  <div class="panel-body">
-    <p class="note" id="phaseNote"></p>
-    <div class="budget" id="budget"></div>
-    <details open data-type="wind"><summary><span class="dot" style="background:var(--wind)"></span>Wind · went well<span class="count-pill" id="cnt-wind">0</span></summary><ul class="cards" id="list-wind"></ul></details>
-    <details open data-type="rock"><summary><span class="dot" style="background:var(--rock)"></span>Rocks · didn't go well<span class="count-pill" id="cnt-rock">0</span></summary><ul class="cards" id="list-rock"></ul></details>
-    <details open data-type="barnacle"><summary><span class="dot" style="background:var(--barnacle)"></span>Barnacles · could be better<span class="count-pill" id="cnt-barnacle">0</span></summary><ul class="cards" id="list-barnacle"></ul></details>
-  </div>
-  <form id="addForm" autocomplete="off">
-    <div class="seg" role="radiogroup" aria-label="Card type">
-      <input type="radio" name="type" id="t-wind" value="wind" checked><label for="t-wind" style="--c:var(--wind)">🌬 Wind</label>
-      <input type="radio" name="type" id="t-rock" value="rock"><label for="t-rock" style="--c:var(--rock)">🪨 Rock</label>
-      <input type="radio" name="type" id="t-barnacle" value="barnacle"><label for="t-barnacle" style="--c:var(--barnacle)">🐚 Barnacle</label>
-    </div>
-    <label class="sr-only" for="cardText">Card text</label>
-    <input class="text-in" id="cardText" maxlength="200" placeholder="What happened this sprint?" required>
-    <div class="row">
-      <label><input type="checkbox" id="anon"> Post anonymously</label>
-      <button class="add-btn" type="submit">Add</button>
-    </div>
-  </form>
-</aside>
 
 <aside id="tunePanel" class="closed fac-only" aria-label="Tune settings">
   <div class="panel-head">
@@ -494,8 +435,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 <div id="live" class="sr-only" aria-live="polite"></div>
 
 <nav id="mobileBar" aria-label="Panels">
-  <button class="btn" id="mCards">Cards</button>
-  <button class="btn" id="mLog">Logbook</button>
+  <button class="btn" id="mLog" hidden>Logbook</button>
   <button class="btn fac-only" id="mTune">Tune</button>
 </nav>
 
@@ -545,7 +485,8 @@ const DEFAULTS = {
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
   MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
-  SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15
+  SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15,
+  SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
 const PARAMS = [
   ["Speed model"],
@@ -565,6 +506,11 @@ const PARAMS = [
   ["MAX_VOTES_PER_CARD","Max votes per card (per person)",1,10,1,""],
   ["SILENT_TIMER_MIN","Silent writing (min)",.5,15,.5,"Names hidden until it ends"],
   ["SHOW_SPEEDOMETER","Show speedometer","bool",0,0,"Hide so speed isn't a team score"],
+  ["Step timers (a guide, not a hard stop)"],
+  ["SAIL_MIN","Sail (min)",1,60,1,""],
+  ["NAV_MIN","Navigate (min)",1,60,1,""],
+  ["COURSE_MIN","Set course (min)",1,60,1,""],
+  ["HARBOR_MIN","Harbor (min)",1,60,1,""],
   ["Scene & performance"],
   ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
   ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
@@ -577,11 +523,6 @@ const PARAMS = [
   ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
 ];
 let C = {...DEFAULTS};
-/* SIMPLE mode: phases are switched off. Cards can be added and voted on any time,
-   and every card and vote moves the boat. Set to false to bring the 5 steps back. */
-const SIMPLE = true;
-const canAddCards = () => SIMPLE || S.phase === 1;
-const canVoteNow = () => SIMPLE || S.phase === 2;
 
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
@@ -656,7 +597,7 @@ let bc = null;
 
 function newSession({ ship = "", star = "", starRock = null } = {}){
   return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {},
-    phase: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
+    phase: 0, phaseStartedAt: 0, phaseMinutes: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
 }
 const byId = id => S.cards.find(c => c.id === id);
 const isFac = () => role === "facilitator";
@@ -709,10 +650,9 @@ function apply(a, local){
   switch (a.type){
     case "card.add": {
       if (byId(a.card.id)) return;
-      S.cards.push(a.card); buildCard(a.card, true);
+      S.cards.push(a.card);
       if (a.by){ (S.contributors ||= {})[a.by] = 1; }
-      updateBriefStat();
-      recompute(); updateCounts();
+      recompute(); renderStage();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
       if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
       toast(a.card.type, a.card.anonymous || silentActive() ? null : a.card.authorName);
@@ -722,7 +662,7 @@ function apply(a, local){
       const c = byId(a.cardId); if (!c) return;
       const n = Math.max(0, (c.votes[a.pid] || 0) + a.delta);
       if (n) c.votes[a.pid] = n; else delete c.votes[a.pid];
-      recompute(); updateAllCards();
+      recompute(); renderStage();
       if (c.type === "barnacle") renderBarnacles();
       if (a.delta > 0 && c.type === "wind") gustBoost = Math.max(gustBoost, .5);
       if (a.delta > 0 && c.type === "rock") jolt = Math.max(jolt, .4);
@@ -730,28 +670,27 @@ function apply(a, local){
     }
     case "scrape": {
       const c = byId(a.cardId); if (!c || c.scraped) return;
-      c.scraped = true; recompute(); updateCard(c); renderBarnacles(); renderStars(); renderBrief();
+      c.scraped = true; recompute(); renderBarnacles(); renderStars(); renderStage();
       plainToast(`★ New action item: ${c.text}`);
       break;
     }
     case "phase":
-      S.phase = a.phase; briefOpen = true; renderPhase(); updateAllCards(); centerMode = null; renderCenter();
-      if (S.phase >= 1 && S.phase <= 3 && innerWidth >= 760) setPanel("cardsPanel", true);
-      if ((S.phase === 0 || S.phase === 4) && innerWidth < 760) setPanel("cardsPanel", false);
-      if (!local) announce(`Phase ${a.phase + 1}: ${PHASES[a.phase].name}, ${PHASES[a.phase].std}`);
+      S.phase = a.phase; S.phaseStartedAt = a.startedAt || 0; S.phaseMinutes = a.minutes || 0;
+      renderPhase(); renderStage(); centerMode = null; renderModal();
+      if (!local) announce(`Step ${a.phase + 1}: ${PHASES[a.phase].name}`);
       break;
     case "names":
       if (a.ship != null) S.ship = a.ship;
       if (a.star != null) S.star = a.star;
-      renderTitle(); renderPhase(); renderBrief();
+      renderTitle(); renderPhase(); renderStage();
       break;
     case "silent":
-      S.silentUntil = a.until; syncSilent(); updateAllCards(); renderBrief();
+      S.silentUntil = a.until; syncSilent(); renderStage();
       break;
     case "config":
       C = {...DEFAULTS, ...a.config}; team.config = C;
       if (!local) renderParams();
-      recompute(); updateAllCards(); renderBarnacles(); applySpeedoVisibility();
+      recompute(); renderStage(); renderBarnacles(); applySpeedoVisibility();
       if (!local && simTimer) ensureSims(C.SIM_PEOPLE);
       break;
     case "cards.replace":
@@ -773,7 +712,7 @@ function apply(a, local){
       break;
     case "session.next":
       team.sessions = a.sessions; team.current = S = a.session;
-      history = []; briefOpen = true; centerMode = null;
+      history = []; centerMode = null; myCards.clear();
       rebuildAll();
       plainToast("New retro started at the Dock");
       break;
@@ -974,91 +913,24 @@ function renderPhase(){
     if (i) steps.appendChild(h("li", { "aria-hidden":"true" }, h("span", { class: "sep" + (i <= S.phase ? " done" : "") })));
     const done = i < S.phase, cur = i === S.phase;
     const b = h("button", { class: "step" + (done ? " done" : ""), type:"button",
-      "aria-current": cur ? "step" : null, title: `${p.name} · ${p.std}`,
-      "aria-label": `Step ${i+1}: ${p.name} (${p.std})${done ? ", done" : cur ? ", current" : ""}`, "aria-disabled": isFac() || cur ? null : "true",
-      onclick: () => { if (cur) return reopenPhaseCard(); if (isFac()) dispatch({ type:"phase", phase: i }); } },
+      "aria-current": cur ? "step" : null, title: p.name,
+      "aria-label": `Step ${i+1}: ${p.name}${done ? ", done" : cur ? ", current" : ""}`, "aria-disabled": isFac() && !cur ? null : "true",
+      onclick: () => { if (isFac() && !cur) gotoPhase(i); } },
       h("span", { class:"num", text: done ? "✓" : i+1 }), h("span", { class:"nm", text: p.name }));
     steps.appendChild(h("li", {}, b));
   });
-  // phase-dependent card UI (cards panel)
-  $("addForm").hidden = !canAddCards();
-  $("budget").hidden = !canVoteNow();
-  if (SIMPLE){
-    $("phaseNote").textContent = "🌬 Wind speeds the boat up. 🪨 Rocks and 🐚 barnacles slow it down. Vote on a card to make it count more.";
-    $("phaseNote").hidden = false;
-    return;
-  }
-  const notes = [
-    "Cards open when the facilitator sets sail.",
-    "",
-    "Cards are closed. Spend your votes on what matters most.",
-    isFac() ? "Use “→ ★” on the top rocks and barnacles to make action items." : "The facilitator is turning top cards into action items.",
-    "The voyage is done. See the Harbor summary."
-  ];
-  $("phaseNote").textContent = notes[S.phase];
-  $("phaseNote").hidden = !notes[S.phase];
 }
 
 /* ================================================================
    UI: cards
    ================================================================ */
-const cardEls = new Map();
 function silentActive(){ return Date.now() < (S.silentUntil || 0); }
-function authorLabel(c){
-  if (c.anonymous) return "Anonymous";
-  if (silentActive()) return "Hidden until silent writing ends";
-  return c.author === me.id ? `${me.name} (you)` : c.authorName;
-}
 function personVotesUsed(pid){ return S.cards.reduce((a,c) => a + (c.votes[pid]||0), 0); }
-
-function buildCard(c, animateIn){
-  const li = h("li", { class: "card" + (animateIn ? " new" : "") }); li.style.setProperty("--c", `var(--${c.type})`);
-  li.appendChild(h("p", { text: c.text }));
-  const author = h("span", { class:"author" });
-  const minus = h("button", { type:"button", "aria-label":"Remove my vote", text:"−", onclick: () => myVote(c.id, -1) });
-  const n = h("span", { class:"n" });
-  const plus = h("button", { type:"button", "aria-label":"Add my vote", text:"+", onclick: () => myVote(c.id, +1) });
-  const meta = h("div", { class:"meta" }, author, h("div", { class:"vote" }, minus, n, plus));
-  let scrape = null;
-  if (c.type !== "wind"){
-    scrape = h("button", { type:"button", class:"btn small scrape", text: c.type === "barnacle" ? "Scrape → ★" : "Chart → ★",
-      title:"Turn into an action item", onclick: () => { if (isFac() && S.phase === 3) dispatch({ type:"scrape", cardId: c.id }); } });
-    meta.appendChild(scrape);
-  }
-  li.appendChild(meta);
-  cardEls.set(c.id, { li, author, n, minus, plus, scrape });
-  $("list-" + c.type).prepend(li);
-  updateCard(c);
-}
-function updateCard(c){
-  const r = cardEls.get(c.id); if (!r) return;
-  const total = totalVotes(c), mine = c.votes[me.id] || 0, voting = canVoteNow();
-  r.author.textContent = authorLabel(c);
-  r.n.textContent = `${total} vote${total===1?"":"s"}${mine ? ` · ${mine} mine` : ""}`;
-  r.n.title = `Weight ×${weight(c).toFixed(2)}`;
-  r.minus.hidden = r.plus.hidden = !voting;
-  r.minus.disabled = !mine;
-  r.plus.disabled = mine >= C.MAX_VOTES_PER_CARD || personVotesUsed(me.id) >= C.VOTES_PER_PERSON;
-  r.li.classList.toggle("scraped", !!c.scraped);
-  if (r.scrape) r.scrape.hidden = SIMPLE || !!c.scraped || !(isFac() && S.phase === 3);
-}
-function updateAllCards(){ S.cards.forEach(updateCard); updateCounts(); }
-function updateCounts(){
-  for (const t of ["wind","rock","barnacle"]) $("cnt-"+t).textContent = S.cards.filter(c=>c.type===t).length;
-  const used = personVotesUsed(me.id);
-  $("budget").textContent = `Your votes: ${C.VOTES_PER_PERSON - used} of ${C.VOTES_PER_PERSON} left · max ${C.MAX_VOTES_PER_CARD} per card`;
-  updateBriefStat();
-}
-function rebuildCards(){
-  cardEls.clear();
-  ["wind","rock","barnacle"].forEach(t => $("list-"+t).innerHTML = "");
-  S.cards.forEach(c => buildCard(c, false));
-  recompute(); updateCounts(); renderBarnacles(); renderStars();
-}
+function rebuildCards(){ recompute(); renderBarnacles(); renderStars(); renderStage(); }
 
 /* Actions from this person */
 function myVote(cardId, delta){
-  const c = byId(cardId); if (!c || !canVoteNow()) return;
+  const c = byId(cardId); if (!c || S.phase !== 2) return;
   if (!canVote(c, me.id, delta)) return;
   dispatch({ type:"vote", cardId, pid: me.id, delta });
 }
@@ -1108,13 +980,14 @@ function renderAvatars(){
     box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,2) }));
   });
   if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
+  if (S && S.phase === 0) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
 }
 
 /* ================================================================
    Center card: Dock / Harbor / Logbook / Links
    ================================================================ */
-let centerMode = null, briefOpen = true;
+let centerMode = null;
 const teamLink = () => location.href.split("#")[0] + "#/t/" + team.id;
 const facLink = () => location.href.split("#")[0] + "#/f/" + fkey;
 
@@ -1266,127 +1139,149 @@ function nextStarSection(){
   return out;
 }
 /* ================================================================
-   Phase brief: every phase opens with one. Minimize keeps a slim bar.
+   STAGE: each step has its own simple screen
+   Dock: facilitator plans minutes while the crew comes aboard
+   Sail: add cards (you only see your own)   Navigate: board, vote
+   Set course: top problems become action items   Harbor: wrap up
    ================================================================ */
-const BRIEF = [
-  { one:"Name the ship, check last retro's star, check in.", next:"Cast off → Sail",          mini:"Cast off →" },
-  { one:"Add wind, rocks and barnacles. The boat reacts live.", next:"Close cards → Navigate", mini:"Next: Navigate →" },
-  { one:"Spend your votes on what matters most.",              next:"Lock votes → Set course", mini:"Next: Set course →" },
-  { one:"Turn the top rocks and barnacles into action items.", next:"Sail into the Harbor →",  mini:"Next: Harbor →" },
-  { one:"Check the star, set the next one, save the voyage.",  next:"Save voyage & start next retro", mini:"Save voyage" },
-];
-const chip = (type, name, meaning) => h("span", { class:"chip", style:`--c:var(--${type})` }, h("b", { text: name }), ` ${meaning}`);
-const todo = items => h("ol", { class:"todo" }, items.filter(Boolean).map(x => h("li", {}, x)));
-function briefStatText(){
-  if (S.phase === 1){ const n = S.cards.length; return `${n} card${n===1?"":"s"} so far`; }
-  if (S.phase === 2){ const left = C.VOTES_PER_PERSON - personVotesUsed(me.id); return `Your votes: ${left} of ${C.VOTES_PER_PERSON} left`; }
-  if (S.phase === 3){ const n = S.cards.filter(c => c.scraped).length; return `${n} action item${n===1?"":"s"} so far`; }
+const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
+const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
+const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
+const TYPES = [["wind","Wind","🌬"],["rock","Rock","🪨"],["barnacle","Barnacle","🐚"]];
+const TOP_N = 5;
+const stage = $("stage");
+const myCards = new Set();
+let builtPhase = null, composeType = "wind";
+
+function gotoPhase(p){ dispatch({ type:"phase", phase: p, startedAt: Date.now(), minutes: stepMin(p) }); }
+function goNext(){ if (S.phase < 4) gotoPhase(S.phase + 1); else nextRetro(); }
+
+function renderStage(force){
+  if (!S) return;
+  if (force || builtPhase !== S.phase){ buildStage(S.phase); builtPhase = S.phase; }
+  fillStage(S.phase);
+}
+function buildStage(p){
+  const fac = isFac();
+  stage.className = "st-" + PHASES[p].key;
+  stage.innerHTML = "";
+  const body = h("div", { class:"stage-body" });
+  if (p === 0 && fac) body.append(planEditor());
+  if (p === 1) body.append(composer());
+  body.append(h("div", { id:"stageDyn" }));
+  stage.append(
+    h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" })),
+    body,
+    h("div", { class:"stage-foot" },
+      fac && p > 0 ? h("button", { class:"btn small ghost", type:"button", text:"← Back", onclick: () => gotoPhase(p - 1) }) : null,
+      h("span", { class:"grow" }),
+      fac ? h("button", { class:"btn primary", type:"button", text: NEXT[p], onclick: goNext })
+          : h("span", { class:"waiting", text: p === 0 ? "Waiting to cast off" : "The facilitator moves everyone on" })));
+}
+function planEditor(){
+  return h("div", { class:"plan" }, h("h3", { text:"Minutes per step" }), [1,2,3,4].map(p => {
+    const key = STEP_MIN_KEYS[p], id = "min-" + p;
+    const inp = h("input", { type:"number", id, class:"min-in", min:1, max:60, step:1, value: C[key], "data-key": key });
+    inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; pushConfig(); };
+    return h("div", { class:"plan-row" }, h("label", { for:id, text: PHASES[p].name }), h("span", { class:"min-wrap" }, inp, " min"));
+  }));
+}
+function composer(){
+  const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name, ico]) => {
+    const inp = h("input", { type:"radio", name:"ctype", id:"ct-" + t, value: t });
+    inp.checked = composeType === t;
+    inp.onchange = () => { composeType = t; };
+    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico", text: ico }), name)];
+  }));
+  const text = h("input", { class:"text-in", id:"cardText", maxlength:200, placeholder:"What happened?", "aria-label":"Card text", autocomplete:"off" });
+  const anon = h("input", { type:"checkbox", id:"anon" });
+  const form = h("form", { class:"compose" }, seg,
+    h("div", { class:"compose-row" }, text, h("button", { class:"add-btn", type:"submit", text:"Add" })),
+    h("label", { class:"anon" }, anon, " Anonymous"));
+  form.onsubmit = e => {
+    e.preventDefault();
+    const v = text.value.trim(); if (!v || S.phase !== 1) return;
+    const card = makeCard(composeType, v, me.id, me.name, anon.checked);
+    myCards.add(card.id);
+    dispatch({ type:"card.add", by: me.id, card });
+    text.value = ""; text.focus();
+  };
+  return form;
+}
+function fillStage(p){
+  const dyn = $("stageDyn"); if (!dyn) return;
+  const act = document.activeElement, fk = act && stage.contains(act) ? act.dataset.fk : null;
+  const body = stage.querySelector(".stage-body"), st = body.scrollTop;
+  dyn.className = p === 2 ? "board" : p === 3 ? "course" : "";
+  dyn.replaceChildren(...stageContent(p).filter(Boolean));
+  body.scrollTop = st;
+  if (fk){ const e = stage.querySelector(`[data-fk="${fk}"]`); if (e && !e.disabled) e.focus(); }
+  $("stageStat").textContent = stageStat(p);
+  stage.querySelectorAll(".min-in").forEach(i => { if (i !== document.activeElement) i.value = C[i.dataset.key]; });
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+function stageStat(p){
+  if (p === 0) return `${people().length} aboard`;
+  if (p === 1) return plural(S.cards.length, "card");
+  if (p === 2) return `${plural(C.VOTES_PER_PERSON - personVotesUsed(me.id), "vote")} left`;
+  if (p === 3) return plural(S.cards.filter(c => c.scraped).length, "action item");
   return "";
 }
-function updateBriefStat(){ const e = $("briefStat"); if (e) e.textContent = briefStatText(); }
-function briefContent(p){
-  const fac = isFac();
-  if (p === 0){
-    const tip = fac && S.star && TASK_RE.test(S.star.trim())
-      ? h("div", { class:"tipbox", text:"Tip: word the star as an outcome you can check, like “PR reviews done within 24 hours”, not a task." }) : null;
-    return [
-      todo([
-        fac ? "Name the ship in the top bar. Sprint name or number works well." : null,
-        S.star ? "Vote below: did we hit last retro's star?" : "No star yet. You'll set one at the Harbor, tied to a rock.",
-        "Check-in: in one word, what was the weather like for you this sprint?"
-      ]),
-      ...(S.star ? starCheckSection("dock") : []),
-      tip,
-      h("details", { class:"share" }, h("summary", { text:"Share the team link" }), ...linksSection().slice(1))
-    ];
+function stageContent(p){
+  if (p === 0) return [h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+    h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
+  if (p === 1){
+    const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
+    return mine.length ? [h("ul", { class:"mine", "aria-label":"Your cards" }, mine.map(c => h("li", { class:"chip", style:`--c:var(--${c.type})`, text: c.text })))] : [];
   }
-  if (p === 1) return [
-    h("div", { class:"legend" }, chip("wind","Wind","went well"), chip("rock","Rock","didn't go well"), chip("barnacle","Barnacle","could be better")),
-    todo([
-      "Open Cards and add as many as you like, one idea per card.",
-      "Tick “Post anonymously” for anything sensitive.",
-      "Watch the boat: wind fills the sails, rocks and barnacles slow it down."
-    ]),
-    h("span", { class:"live-stat", id:"briefStat", text: briefStatText() }),
-    fac ? h("p", { class:"muted" }, h("button", { class:"btn small", type:"button", text: silentActive() ? "End silent writing" : `Start silent writing (${C.SILENT_TIMER_MIN} min)`,
-      onclick: () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 }) }), " Names stay hidden until the timer ends.") : null
-  ];
-  if (p === 2) return [
-    todo([
-      `You have ${C.VOTES_PER_PERSON} votes, max ${C.MAX_VOTES_PER_CARD} per card. Use + and − on the cards.`,
-      "Vote for what matters most to talk about, good or bad.",
-      "Votes move the boat: voted wind speeds it up, voted rocks slow it down."
-    ]),
-    h("span", { class:"live-stat", id:"briefStat", text: briefStatText() })
-  ];
+  if (p === 2) return TYPES.map(([t, name]) => {
+    const cards = S.cards.filter(c => c.type === t);
+    return h("section", {}, h("h3", { class:"col-h" }, h("span", { class:"dot", style:`background:var(--${t})` }), name, h("span", { class:"count-pill", text: cards.length })),
+      h("ul", { class:"cards" }, cards.map(c => tile(c, "vote"))));
+  });
+  const acts = S.cards.filter(c => c.scraped);
+  const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
   if (p === 3){
-    const top = problems(S.cards).filter(c => !c.scraped).sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 3);
+    const top = problems(S.cards).filter(c => !c.scraped).sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, TOP_N);
     return [
-      todo(fac ? [
-        "Talk through the top-voted rocks and barnacles below.",
-        "Press “Chart → ★” or “Scrape → ★” on a card to make it an action item.",
-        "Each action item lights a star in the sky."
-      ] : [
-        "Talk through the top-voted rocks and barnacles together.",
-        "The facilitator turns the ones you agree on into action items.",
-        "Each action item lights a star in the sky."
-      ]),
-      top.length ? h("div", {}, h("h3", { text:"Top problems" }), h("ol", { class:"top" }, top.map(c =>
-        h("li", {}, c.text, h("span", { class:"v", text:` · ${totalVotes(c)} vote${totalVotes(c)===1?"":"s"}` }))))) : null,
-      h("span", { class:"live-stat", id:"briefStat", text: briefStatText() })
+      h("section", {}, h("h3", { class:"col-h", text:"Top problems" }), top.length ? h("ul", { class:"cards" }, top.map(c => tile(c, "course"))) : h("p", { class:"muted", text:"None left" })),
+      h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
     ];
   }
-  const actions = S.cards.filter(c => c.scraped);
-  const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
-  return [
-    C.SHOW_SPEEDOMETER ? h("p", {}, h("span", { class:"big", text:`${speed.toFixed(1)} kn` }), h("span", { class:"muted", text:` final · ${avg.toFixed(1)} kn average · mood, not the score` })) : null,
-    ...starCheckSection("harbor"),
-    ...nextStarSection(),
-    h("h3", { text:`Action items (${actions.length})` }),
-    actions.length ? h("ul", { class:"actions" }, actions.map(c => h("li", { text: c.text }))) : h("p", { class:"muted", text:"None this time. Turn rocks and barnacles into ★ in Set course." }),
-    ...logbookSection(true)
-  ];
+  return [h("h3", { class:"col-h", text:"★ Action items" }), actList];
 }
-function goNext(){ if (S.phase < 4) dispatch({ type:"phase", phase: S.phase + 1 }); else nextRetro(); }
-function minimizeBrief(openCards){
-  briefOpen = false; renderBrief();
-  if (openCards) setPanel("cardsPanel", true);
+function tile(c, mode){
+  const li = h("li", { class:"card", style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  if (!mode) return li;
+  const total = totalVotes(c), mine = c.votes[me.id] || 0;
+  const meta = h("div", { class:"meta" }, h("span", { class:"author" }));
+  if (mode === "vote"){
+    meta.append(h("div", { class:"vote" },
+      h("button", { type:"button", "data-fk":"m" + c.id, "aria-label":`Remove my vote: ${c.text}`, text:"−", disabled: !mine, onclick: () => myVote(c.id, -1) }),
+      h("span", { class:"n", text: mine ? `${total} · ${mine} mine` : String(total) }),
+      h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
+  } else {
+    meta.append(h("span", { text: plural(total, "vote") }));
+    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", text:"★ Action item", onclick: () => dispatch({ type:"scrape", cardId: c.id }) }));
+  }
+  li.append(meta);
+  return li;
 }
-function renderBrief(){
-  if (!S) return;
-  const p = S.phase, d = BRIEF[p], ph = PHASES[p], fac = isFac();
-  const box = $("brief"), body = $("briefBody"), foot = $("briefFoot");
-  box.classList.toggle("min", !briefOpen);
-  $("briefNum").textContent = p + 1;
-  $("briefEyebrow").textContent = `Step ${p+1} of 5 · ${ph.std}`;
-  $("briefTitle").textContent = ph.name;
-  $("briefOne").textContent = d.one;
-  const tg = $("briefToggle");
-  tg.textContent = briefOpen ? "Minimize" : "Show brief";
-  tg.setAttribute("aria-expanded", String(briefOpen));
-  const mini = $("briefMiniNext");
-  mini.textContent = d.mini; mini.onclick = goNext;
-  if (!briefOpen){ body.innerHTML = ""; foot.innerHTML = ""; return; }
-  const keepFocus = document.activeElement && document.activeElement.id === "nextStarIn";
-  const scroll = body.scrollTop;
-  body.innerHTML = ""; body.append(...briefContent(p).filter(Boolean));
-  body.scrollTop = scroll;
-  if (keepFocus){ const i = $("nextStarIn"); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
-  foot.innerHTML = "";
-  const gotIt = { 1:"Add cards", 2:"Start voting", 3:"Got it" }[p];
-  foot.append(...[
-    fac && p > 0 ? h("button", { class:"btn small ghost", type:"button", text:`← ${PHASES[p-1].name}`, onclick: () => dispatch({ type:"phase", phase: p - 1 }) }) : null,
-    h("span", { class:"grow" }),
-    !fac ? h("span", { class:"waiting", text: p < 4 ? "The facilitator moves everyone on." : "The facilitator saves the voyage." }) : null,
-    gotIt ? h("button", { class: fac ? "btn" : "btn primary", type:"button", text: gotIt, onclick: () => minimizeBrief(p !== 3) }) : null,
-    fac ? h("button", { class:"btn primary", type:"button", text: d.next, onclick: goNext }) : null
-  ].filter(Boolean));
+
+/* Step timer: counts down, then keeps counting as overtime. Nothing moves on by itself. */
+let timerText = "";
+function tickTimer(){
+  const el = $("timer"), m = S.phaseMinutes || 0;
+  if (!m || !S.phaseStartedAt){ if (!el.hidden){ el.hidden = true; timerText = ""; } return; }
+  const left = Math.round((S.phaseStartedAt + m * 60000 - Date.now()) / 1000), a = Math.abs(left);
+  const txt = `${Math.floor(a/60)}:${String(a%60).padStart(2,"0")}` + (left < 0 ? " over" : "");
+  if (txt === timerText) return;
+  timerText = txt; el.textContent = left < 0 ? "+" + txt : txt;
+  el.classList.toggle("over", left < 0); el.title = `${m} min planned`; el.hidden = false;
 }
-function reopenPhaseCard(){ briefOpen = true; renderBrief(); }
-$("briefToggle").onclick = () => { briefOpen = !briefOpen; renderBrief(); };
 
 /* Modal: logbook and links (opened from the header) */
-function renderCenter(){ renderBrief(); renderModal(); }
+function renderCenter(){ renderStage(); renderModal(); }
 function renderModal(){
   const box = $("center"), body = $("centerBody");
   if (!centerMode){ box.hidden = true; return; }
@@ -1435,16 +1330,6 @@ function makeCard(type, text, author, authorName, anonymous){
 function simStep(){
   if (!sims.length) return;
   const p = pick(sims);
-  if (SIMPLE){
-    if (!S.cards.length || Math.random() < .5){
-      const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
-      dispatch({ type:"card.add", by: p.id, card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
-    } else {
-      const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
-      if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
-    }
-    return;
-  }
   if (S.phase === 0 && S.star){
     if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
   } else if (S.phase === 1){
@@ -1463,7 +1348,7 @@ function toggleSim(){
   const on = !simTimer;
   $("simBtn").setAttribute("aria-pressed", on);
   $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
-  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (!SIMPLE && S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
   else { clearTimeout(simTimer); simTimer = null; ensureSims(0); }
 }
 function loadExample(){
@@ -1496,7 +1381,7 @@ function renderParams(){
       const num = h("input", { type:"number", "aria-label":`${label} value`, min, max, step });
       const range = h("input", { type:"range", id, min, max, step });
       num.value = range.value = C[key];
-      const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); updateAllCards(); renderBarnacles(); pushConfig(); };
+      const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); renderStage(); renderBarnacles(); pushConfig(); };
       range.oninput = () => set(range.value);
       num.onchange = () => set(num.value);
       box.appendChild(h("div", { class:"param" }, h("label", { for:id, text:label }), num, range, help ? h("small", { text:help }) : null));
@@ -1513,7 +1398,7 @@ function renderReadout(){
 }
 function configAsTs(){
   const groups = { speed:["VOTE_FACTOR","WIND_GAIN","MAX_THRUST","ROCK_BASE","BARNACLE_BASE","SCRAPED_FACTOR","BASE_DRIFT","MAX_SPEED","TAU","MAX_ACCEL"],
-    retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER"],
+    retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
     scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
   return "// config/retro.ts\n" + Object.entries(groups).map(([g, keys]) =>
     `export const ${g.toUpperCase()} = {\n` + keys.map(k => `  ${k}: ${JSON.stringify(C[k])},`).join("\n") + "\n} as const;").join("\n\n") + "\n";
@@ -1534,7 +1419,7 @@ function syncSilent(){
 }
 function tickSilent(){
   const left = (S.silentUntil || 0) - Date.now();
-  if (left <= 0){ syncSilent(); updateAllCards(); announce("Silent writing ended. Names are now visible."); return; }
+  if (left <= 0){ syncSilent(); renderStage(); announce("Silent writing ended. Names are now visible."); return; }
   const s = Math.ceil(left/1000);
   $("silentChip").hidden = false;
   $("silentChip").textContent = `🤫 Silent writing ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
@@ -1611,6 +1496,7 @@ function frame(now){
     $("band").textContent = speed < 1 ? "Becalmed" : speed < 4 ? "Drifting" : speed < 8 ? "Steady sailing" : speed < 11 ? "Good breeze" : "Cruising";
   }
   if (now - lastSample > 1000){ lastSample = now; sample(); }
+  tickTimer();
   requestAnimationFrame(frame);
 }
 function sample(){
@@ -1618,7 +1504,7 @@ function sample(){
   const cutoff = Date.now() - C.HISTORY_MINUTES * 60000;
   while (history.length && history[0].t < cutoff) history.shift();
   // Facilitator writes the session's speed history (one writer, every 5 s)
-  if (isFac() && (SIMPLE || (S.phase > 0 && S.phase < 4)) && ++sampleN % 5 === 0){
+  if (isFac() && S.phase > 0 && S.phase < 4 && ++sampleN % 5 === 0){
     S.history.push({ t: Date.now(), v: +speed.toFixed(2) });
     if (S.history.length > 3000) S.history.shift();
     persist();
@@ -1691,11 +1577,10 @@ async function init(){
 }
 
 function rebuildAll(){
-  recompute(); rebuildCards(); renderTitle(); renderPhase(); renderCenter(); syncSilent(); applySpeedoVisibility(); renderParams();
+  recompute(); renderBarnacles(); renderStars(); renderTitle(); renderPhase(); renderStage(true); renderModal(); syncSilent(); applySpeedoVisibility(); renderParams();
 }
 function start(){
   document.body.classList.toggle("is-fac", isFac());
-  document.body.classList.toggle("simple", SIMPLE);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
   try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
@@ -1704,8 +1589,6 @@ function start(){
   speed = model.target;
   hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
   addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
-  setPanel("cardsPanel", innerWidth >= 760);
-  if (!isFac() && !sget("rtw-hint-" + team.id)){ sset("rtw-hint-" + team.id, 1); plainToast("Tip: bookmark this page — the team link keeps your star history"); }
   requestAnimationFrame(frame);
 }
 
@@ -1714,17 +1597,11 @@ function start(){
    ================================================================ */
 function setPanel(id, open){
   $(id).classList.toggle("closed", !open);
-  if (id === "cardsPanel") document.body.classList.toggle("cards-open", !!open);
-  const btn = id === "cardsPanel" ? $("cardsToggle") : $("tuneToggle");
-  btn.setAttribute("aria-expanded", open);
-  if (innerWidth < 760 && open) setPanel(id === "cardsPanel" ? "tunePanel" : "cardsPanel", false);
+  $("tuneToggle").setAttribute("aria-expanded", open);
 }
 const togglePanel = id => setPanel(id, $(id).classList.contains("closed"));
-$("cardsToggle").onclick = () => togglePanel("cardsPanel");
 $("tuneToggle").onclick = () => togglePanel("tunePanel");
-$("closeCards").onclick = () => setPanel("cardsPanel", false);
 $("closeTune").onclick = () => setPanel("tunePanel", false);
-$("mCards").onclick = () => togglePanel("cardsPanel");
 $("mTune").onclick = () => togglePanel("tunePanel");
 const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
 $("logBtn").onclick = openLog; $("mLog").onclick = openLog;
@@ -1735,27 +1612,17 @@ $("copyLink").onclick = async () => {
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   setPanel("tunePanel", false);
-  if (innerWidth < 760) setPanel("cardsPanel", false);
   if (!$("center").hidden) $("centerClose").click();
-  else if (briefOpen && !e.target.closest("input,textarea")){ briefOpen = false; renderBrief(); }
 });
 
 $("shipIn").oninput = () => onNameInput("ship");
 $("starIn").oninput = () => onNameInput("star");
 
-$("addForm").onsubmit = e => {
-  e.preventDefault();
-  if (!canAddCards()) return;
-  const text = $("cardText").value.trim(); if (!text) return;
-  const type = new FormData(e.target).get("type");
-  dispatch({ type:"card.add", by: me.id, card: makeCard(type, text, me.id, me.name, $("anon").checked) });
-  $("cardText").value = ""; $("cardText").focus();
-};
 $("simBtn").onclick = toggleSim;
 $("silentBtn").onclick = () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 });
 $("exampleBtn").onclick = loadExample;
 $("clearBtn").onclick = () => dispatch({ type:"cards.replace", cards: [] });
-$("resetCfg").onclick = () => { C = {...DEFAULTS}; renderParams(); recompute(); updateAllCards(); applySpeedoVisibility(); pushConfig(); };
+$("resetCfg").onclick = () => { C = {...DEFAULTS}; renderParams(); recompute(); renderStage(); applySpeedoVisibility(); pushConfig(); };
 $("copyCfg").onclick = () => copy(configAsTs(), $("copyCfg"));
 addEventListener("resize", () => team && renderAvatars());
 
