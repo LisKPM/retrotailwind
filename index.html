@@ -144,6 +144,8 @@ ul.cards{list-style:none;margin:0;padding:0 0 6px}
 .vote button:disabled{opacity:.35;cursor:not-allowed}
 .vote .n{min-width:52px;text-align:center;color:var(--ui-text)}
 .scrape{font-size:12px}
+.card.back{background:rgba(240,138,126,.1)}
+.back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -666,8 +668,26 @@ function similar(a, b){
   return n / Math.min(A.size, B.size) >= .5;
 }
 const problems = cards => cards.filter(c => c.type !== "wind");
+/* Is this problem back? Compared the moment it's added (pure).
+   Checks the current star's rock, rocks saved in past voyages, and last retro's action items.
+   streak = retros in a row it has appeared, this one included. */
+function findReturning(text, { starRock = null, sessions = [], prevActions = [] } = {}){
+  const wasStar = !!starRock && similar(text, starRock);
+  const hadAction = prevActions.some(a => similar(text, a.text));
+  const inPast = sessions.some(v => (v.rocks || []).some(r => similar(text, r)));
+  if (!wasStar && !hadAction && !inPast) return null;
+  let streak = 1;
+  for (let i = sessions.length - 1; i >= 0; i--){
+    if ((sessions[i].rocks || []).some(r => similar(text, r))) streak++; else break;
+  }
+  // The star's rock and last retro's actions come from last retro, even in saves without rocks
+  if ((wasStar || hadAction) && streak < 2) streak = 2;
+  return { streak, wasStar, hadAction };
+}
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th","st","nd","rd"][n % 10] || "th");
+const returnedLabel = r => r.streak >= 2 ? `Back again · ${ordinal(r.streak)} retro in a row` : "Back again";
 const tally = (v = {}) => { const a = Object.values(v); return { yes: a.filter(x => x === "yes").length, no: a.filter(x => x === "no").length }; };
-function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => similar(c.text, s.starRock)) : []; }
+function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !c.notSame && similar(c.text, s.starRock)) : []; }
 function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
 function starOutcome(s = S){
   if (!s.star) return "none";
@@ -714,8 +734,12 @@ function apply(a, local){
       if (a.by){ S.contributors ||= {}; S.contributors[a.by] = (S.contributors[a.by] || 0) + 1; }
       recompute(); renderStage();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
-      if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx(renderRocks(a.card.id));
-      toast(a.card.type, a.card.anonymous || silentActive() ? null : a.card.authorName);
+      if (a.card.type === "wind") gustFx();
+      else if (a.card.returned) returnFx(renderRocks(a.card.id));
+      else if (a.card.type === "rock") rockFx(renderRocks(a.card.id));
+      // A returning problem: no text, no author, while people are still writing
+      if (a.card.returned) oldRockToast(a.card);
+      else toast(a.card.type, a.card.anonymous || silentActive() ? null : a.card.authorName);
       break;
     }
     case "vote": {
@@ -732,6 +756,13 @@ function apply(a, local){
       const c = byId(a.cardId); if (!c || c.scraped) return;
       c.scraped = true; recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
       plainToast(`★ New action item: ${c.text}`);
+      break;
+    }
+    case "notSame": {
+      const c = byId(a.cardId); if (!c) return;
+      c.returned = null; c.notSame = true;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      plainToast("Marked as a new problem, not a returning one");
       break;
     }
     case "phase":
@@ -764,7 +795,7 @@ function apply(a, local){
       renderCenter();
       break;
     case "rockReturned":
-      S.rockReturned = a.value; renderCenter();
+      S.rockReturned = a.value; recompute(); renderCenter();
       break;
     case "nextStar":
       S.nextStar = a.nextStar;
@@ -877,7 +908,7 @@ function renderStars(){
 const BARN_SLOTS = [[-100,38],[-70,46],[-40,40],[-10,48],[20,42],[50,48],[80,40],[-120,50],[-55,54],[5,56],[65,55],[105,44],[-85,30],[35,32],[-25,32],[95,30],[-110,22],[120,34],[-5,24],[60,26]];
 function renderBarnacles(newId){
   const g = $("barnacles"); g.innerHTML = "";
-  const active = S.cards.filter(c => c.type === "barnacle" && isOpenProblem(c));
+  const active = S.cards.filter(c => c.type === "barnacle" && !c.returned && isOpenProblem(c));
   const shown = Math.min(active.length, C.MAX_BARNACLE_SPRITES, BARN_SLOTS.length);
   for (let i=0;i<shown;i++){
     const [x,y] = BARN_SLOTS[i]; const c = active[i];
@@ -901,14 +932,14 @@ const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, c
 const ROCK_D = "M-32,14 L-24,-12 L-6,-28 L14,-22 L30,-4 L36,14 Z";
 function rockSlots(){
   const right = Math.min(1570, visibleSky().right - 36), out = [];
-  for (let x = 1015; x <= right; x += 92) out.push({ x, y: 606, s: 1 });      // front row
-  for (let x = 1060; x <= right; x += 80) out.push({ x, y: 556, s: .72 });    // further away
+  for (let x = 1055; x <= right; x += 92) out.push({ x, y: 606, s: 1 });      // front row
+  for (let x = 1090; x <= right; x += 80) out.push({ x, y: 556, s: .72 });    // further away
   return out;
 }
 function renderRocks(newId){
   if (!S) return null;
   const g = $("seaRocks");
-  const open = S.cards.filter(c => c.type === "rock" && isOpenProblem(c))
+  const open = S.cards.filter(c => (c.type === "rock" || c.returned) && isOpenProblem(c))
     .sort((a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0)); // returning rocks always get drawn
   const slots = rockSlots();
   const shown = open.slice(0, Math.min(C.MAX_ROCK_SPRITES, slots.length));
@@ -942,11 +973,34 @@ function renderRocks(newId){
   let more = g.querySelector(".more");
   if (open.length > shown.length){
     if (!more){ more = el("text", { class: "more", fill: "#fff", "font-size": 18, "font-weight": 700 }, g); }
-    const last = slots[shown.length - 1] || { x: 1015, y: 606 };
+    const last = slots[shown.length - 1] || { x: 1055, y: 606 };
     more.setAttribute("x", Math.min(last.x + 30, 1560)); more.setAttribute("y", last.y - 34);
     more.textContent = `+${open.length - shown.length}`;
   } else if (more) more.remove();
   return made;
+}
+/* A returning rock rises out of the water in front of the ship, with a big splash and a jolt */
+function returnFx(r){
+  if (reduced) return; // no motion: the dark rock is simply there, plus the toast
+  jolt = 1.8; sinkKick = 1.4;
+  if (!r) return;
+  r.hidden = true; r.g.setAttribute("opacity", 0);
+  const show = () => { if (r.hidden){ r.hidden = false; r.g.setAttribute("opacity", 1); } };
+  setTimeout(show, 3000);
+  fx(done => {
+    show();
+    const base = r.g.getAttribute("transform");
+    const splash = el("g", { transform:`translate(${r.x},${r.y + 6})` }, $("splashes"));
+    const ring = el("ellipse", { rx: 14, ry: 4, fill:"none", stroke:"#e8f4f8", "stroke-width":4 }, splash);
+    const drops = Array.from({length:16}, () => ({ e: el("circle",{ r: 3+Math.random()*4, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*240, vy:-(180+Math.random()*220) }));
+    animate(1100, p => {
+      const e = 1 - Math.pow(1 - Math.min(1, p * 1.3), 3);
+      r.g.setAttribute("transform", `translate(0,${((1 - e) * 110).toFixed(1)}) ${base}`);
+      ring.setAttribute("rx", 14 + p*150); ring.setAttribute("ry", 4 + p*24); ring.setAttribute("opacity", 1 - p);
+      const tt = p*.9;
+      for (const d of drops){ d.e.setAttribute("cx", d.vx*tt); d.e.setAttribute("cy", d.vy*tt + 450*tt*tt); d.e.setAttribute("opacity", 1 - p); }
+    }, () => { r.g.setAttribute("transform", base); splash.remove(); done(); });
+  });
 }
 function clearRock(id, r){
   r.clearing = true;
@@ -1071,7 +1125,7 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards) }; renderReadout(); }
+function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); }
 
 /* ================================================================
    Toasts + live region
@@ -1091,6 +1145,11 @@ function toast(type, name){
   const d = pushToast(`var(--${type})`, `${who} ${VERB[type]}`);
   lastToast = { type, el: d, text: d.lastChild, names: new Set([who]), count: 1, t: now, timer: setTimeout(() => fade(d), 2600) };
   announce(`${who} ${VERB[type].replace(/\s\S+$/,"")}`);
+}
+function oldRockToast(card){
+  const text = S.phase <= 1 ? "An old rock is back" : `An old rock is back: ${card.text}`;
+  const d = pushToast("var(--rock)", text); setTimeout(() => fade(d), 3600);
+  announce(text);
 }
 function plainToast(text){ const d = pushToast("var(--star)", text); setTimeout(() => fade(d), 3200); announce(text); }
 function pushToast(color, text){
@@ -1147,7 +1206,7 @@ function currentSummary(){
   const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
   return {
     id: S.id, ship: S.ship, star: S.star, starRock: S.starRock || null,
-    rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star ? "pending" : starOutcome(),
+    rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star && rockReturnedOf() !== true ? "pending" : starOutcome(),
     finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
     counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
     rocks: problems(S.cards).map(c => c.text),
@@ -1338,7 +1397,7 @@ function composer(){
   form.onsubmit = e => {
     e.preventDefault();
     const v = text.value.trim(); if (!v || S.phase !== 1) return;
-    const card = makeCard(composeType, v, me.id, me.name, anon.checked);
+    const card = markReturning(makeCard(composeType, v, me.id, me.name, anon.checked));
     myCards.add(card.id);
     dispatch({ type:"card.add", by: me.id, card });
     text.value = ""; text.focus();
@@ -1379,7 +1438,10 @@ function stageContent(p){
   const acts = S.cards.filter(c => c.scraped);
   const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
   if (p === 3){
-    const top = problems(S.cards).filter(c => !c.scraped).sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, TOP_N);
+    // Returning rocks always come first (all of them), then the most voted problems up to TOP_N
+    const open = problems(S.cards).filter(c => !c.scraped), byVotes = (a, b) => totalVotes(b) - totalVotes(a);
+    const back = open.filter(c => c.returned).sort(byVotes);
+    const top = [...back, ...open.filter(c => !c.returned).sort(byVotes).slice(0, Math.max(0, TOP_N - back.length))];
     return [
       h("section", {}, h("h3", { class:"col-h", text:"Top problems" }), top.length ? h("ul", { class:"cards" }, top.map(c => tile(c, "course"))) : h("p", { class:"muted", text:"None left" })),
       h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
@@ -1388,7 +1450,14 @@ function stageContent(p){
   return [h("h3", { class:"col-h", text:"★ Action items" }), actList];
 }
 function tile(c, mode){
-  const li = h("li", { class:"card", style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  if (c.returned && S.phase >= 2){
+    li.append(h("div", { class:"back-row" },
+      h("span", { class:"badge bad inline", text: returnedLabel(c.returned) }),
+      c.returned.wasStar ? h("span", { class:"muted", text:"the star's rock" }) : c.returned.hadAction ? h("span", { class:"muted", text:"had an action item" }) : null,
+      isFac() ? h("button", { class:"btn small ghost", type:"button", "data-fk":"ns" + c.id, "aria-label":`Not the same rock: ${c.text}`, text:"Not the same rock",
+        onclick: () => dispatch({ type:"notSame", cardId: c.id }) }) : null));
+  }
   if (!mode) return li;
   const total = totalVotes(c), mine = c.votes[me.id] || 0;
   const meta = h("div", { class:"meta" }, h("span", { class:"author" }));
@@ -1464,6 +1533,12 @@ function ensureSims(n){
 function makeCard(type, text, author, authorName, anonymous){
   return { id: rid(9), type, text, author: anonymous ? null : author, authorName: anonymous ? null : authorName, anonymous, votes:{}, scraped:false, created: Date.now() };
 }
+function markReturning(card){
+  if (card.type === "wind") return card;
+  const r = findReturning(card.text, { starRock: S.starRock, sessions: team.sessions, prevActions: S.prevActions || [] });
+  if (r) card.returned = r;
+  return card;
+}
 function simStep(){
   if (!sims.length) return;
   const p = pick(sims);
@@ -1471,7 +1546,7 @@ function simStep(){
     if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
   } else if (S.phase === 1){
     const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
-    dispatch({ type:"card.add", by: p.id, card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
+    dispatch({ type:"card.add", by: p.id, card: markReturning(makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE)) });
   } else if (S.phase === 2 && S.cards.length){
     const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
     if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
@@ -1604,8 +1679,10 @@ function frame(now){
   nsScale += (nsTarget - nsScale) * (1 - Math.exp(-dt / .8));
   const pulse = reduced ? 1 : 1 + Math.sin(t * 1.6) * .04;
   northStar.setAttribute("transform", `scale(${(nsScale * pulse).toFixed(3)})`);
-  northStar.setAttribute("opacity", S.star ? 1 : .35);
-  nsGlow.setAttribute("opacity", S.star ? .9 : 0);
+  // The star dims at once when its rock comes back
+  const starOk = S.star && !model.starRockBack;
+  northStar.setAttribute("opacity", starOk ? 1 : .35);
+  nsGlow.setAttribute("opacity", starOk ? .9 : 0);
 
   // Rough sea: the boat sits a little lower and rocks harder. It never slows down.
   sink += (rough * 14 - sink) * (1 - Math.exp(-dt / .8));
