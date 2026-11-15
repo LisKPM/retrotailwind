@@ -464,8 +464,12 @@ async function sha(s){
    The facilitator's values are shared with the whole room.
    ================================================================ */
 const DEFAULTS = {
-  VOTE_FACTOR: 0.25, WIND_GAIN: 4, MAX_THRUST: 10, ROCK_BASE: 2.5, BARNACLE_BASE: 0.6,
-  SCRAPED_FACTOR: 0.5, BASE_DRIFT: 2, MAX_SPEED: 14,
+  CONFIG_V: 2,
+  BASE_DRIFT: 1, MAX_SPEED: 14,
+  W_VOICES: 0.6, W_VOTES: 0.2, W_ACTIONS: 0.2,
+  VOICE_1: 0.6, VOICE_2: 0.25, VOICE_3: 0.15,
+  ACTIONS_TARGET: 3, UNOWNED_ACTION: 0.5,
+  VOTE_FACTOR: 0.25,
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
   MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
@@ -473,15 +477,19 @@ const DEFAULTS = {
   SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
 const PARAMS = [
-  ["Speed model"],
-  ["VOTE_FACTOR","Vote factor",0,1,.05,"Card effect = base × (1 + votes × this)"],
-  ["WIND_GAIN","Wind gain",.5,10,.1,"thrust = gain × ln(1 + wind weight)"],
-  ["MAX_THRUST","Max wind thrust (kn)",2,20,.5,"Cap so lots of wind tops out at cruising"],
-  ["ROCK_BASE","Rock drag (kn each)",0,8,.1,"Linear — rocks hit harder than wind helps"],
-  ["BARNACLE_BASE","Barnacle drag (kn each)",0,3,.05,"Small, stacks"],
-  ["SCRAPED_FACTOR","Scraped barnacle keeps",0,1,.05,"Share of drag left after it becomes an action item"],
-  ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed with no cards at all"],
-  ["MAX_SPEED","Max speed (kn)",4,30,1,"Speedometer top"],
+  ["Speed = crew energy"],
+  ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed when nobody takes part. Problems never go below it."],
+  ["MAX_SPEED","Max speed (kn)",4,30,1,"Speed at full energy, and the speedometer top"],
+  ["W_VOICES","Voices weight",0,1,.05,"energy = voices × this + votes × … + actions × …"],
+  ["W_VOTES","Votes weight",0,1,.05,""],
+  ["W_ACTIONS","Actions weight",0,1,.05,""],
+  ["VOICE_1","1st card per person",0,1,.05,"Each person's voice: 1st card + 2nd + 3rd. More add nothing."],
+  ["VOICE_2","2nd card adds",0,1,.05,""],
+  ["VOICE_3","3rd card adds",0,1,.05,""],
+  ["ACTIONS_TARGET","Action items target",1,10,1,"Owned action items for full actions score"],
+  ["UNOWNED_ACTION","Action without owner counts",0,1,.05,"Share of an owned one"],
+  ["Card weight"],
+  ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
   ["Inertia"],
   ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
   ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
@@ -507,6 +515,15 @@ const PARAMS = [
   ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
 ];
 let C = {...DEFAULTS};
+/* Teams saved before crew energy stored the old speed model's values (BASE_DRIFT 2 etc).
+   Drop those so the new defaults apply; keep everything else they tuned. */
+const OLD_SPEED_KEYS = ["WIND_GAIN","MAX_THRUST","ROCK_BASE","BARNACLE_BASE","SCRAPED_FACTOR","BASE_DRIFT"];
+function loadConfig(cfg){
+  const c = {...(cfg || {})};
+  if (!c.CONFIG_V) OLD_SPEED_KEYS.forEach(k => delete c[k]);
+  for (const k of OLD_SPEED_KEYS) if (!(k in DEFAULTS)) delete c[k];
+  return {...DEFAULTS, ...c, CONFIG_V: DEFAULTS.CONFIG_V};
+}
 
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
@@ -533,22 +550,39 @@ const SCORED = new Set(["met","returned","missed","reached","closer","not-yet"])
 const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|start|stop|hold|schedule|review|refactor|migrate|remove|introduce|try|organi[sz]e|plan)\b/i;
 
 /* ================================================================
-   SPEED MODEL (pure — becomes lib/speed.ts)
+   SPEED MODEL: "crew energy" (pure — becomes lib/speed.ts)
+   Speed measures participation, never problems.
+     voices  = average over everyone present of each person's voice
+               (1st card VOICE_1, 2nd +VOICE_2, 3rd +VOICE_3, more add nothing)
+     votes   = votes cast ÷ (present × VOTES_PER_PERSON)
+     actions = (owned + unowned × UNOWNED_ACTION) ÷ ACTIONS_TARGET, capped at 1
+     energy  = W_VOICES·voices + W_VOTES·votes + W_ACTIONS·actions
+     speed   = BASE_DRIFT + (MAX_SPEED − BASE_DRIFT) × energy
    ================================================================ */
-const totalVotes = c => Object.values(c.votes).reduce((a,b)=>a+b,0);
-const weight = c => 1 + totalVotes(c) * C.VOTE_FACTOR;
-function computeSpeed(cards){
-  let W = 0, rock = 0, barn = 0;
-  for (const c of cards){
-    const w = weight(c);
-    if (c.type === "wind") W += w;
-    else if (c.type === "rock") rock += C.ROCK_BASE * w;
-    else barn += C.BARNACLE_BASE * w * (c.scraped ? C.SCRAPED_FACTOR : 1);
-  }
-  const thrust = Math.min(C.MAX_THRUST, C.WIND_GAIN * Math.log(1 + W));
-  const target = clamp(C.BASE_DRIFT + thrust - rock - barn, 0, C.MAX_SPEED);
-  return { W, thrust, rock, barn, target };
+const totalVotes = c => Object.values(c.votes || {}).reduce((a,b)=>a+b,0);
+const weight = (c, cfg = C) => 1 + totalVotes(c) * cfg.VOTE_FACTOR;
+function voiceScore(n, cfg = C){
+  return (n >= 1 ? cfg.VOICE_1 : 0) + (n >= 2 ? cfg.VOICE_2 : 0) + (n >= 3 ? cfg.VOICE_3 : 0);
 }
+/* counts: { personId: cards added }, present: people in the room,
+   votesCast: all votes on all cards, actions: { owned, unowned } */
+function computeEnergy({ counts = {}, present = 0, votesCast = 0, actions = { owned:0, unowned:0 } }, cfg = C){
+  const ids = Object.keys(counts).filter(k => counts[k] > 0);
+  const n = Math.max(present, ids.length);
+  const voices = n ? clamp(ids.reduce((a, k) => a + voiceScore(counts[k], cfg), 0) / n, 0, 1) : 0;
+  const votesAvail = n * cfg.VOTES_PER_PERSON;
+  const votes = votesAvail ? clamp(votesCast / votesAvail, 0, 1) : 0;
+  const actPts = actions.owned + actions.unowned * cfg.UNOWNED_ACTION;
+  const acts = cfg.ACTIONS_TARGET > 0 ? clamp(actPts / cfg.ACTIONS_TARGET, 0, 1) : 0;
+  const energy = clamp(cfg.W_VOICES * voices + cfg.W_VOTES * votes + cfg.W_ACTIONS * acts, 0, 1);
+  const target = clamp(cfg.BASE_DRIFT + (cfg.MAX_SPEED - cfg.BASE_DRIFT) * energy, 0, cfg.MAX_SPEED);
+  return { present: n, voices, votes, votesCast, votesAvail, actions: acts, actPts, energy, target };
+}
+const actionCounts = cards => {
+  const acts = cards.filter(c => c.scraped);
+  const owned = acts.filter(c => c.owner).length;
+  return { owned, unowned: acts.length - owned };
+};
 function stepSpeed(v, target, dt){
   const dv = (target - v) * (1 - Math.exp(-dt / C.TAU));
   const max = C.MAX_ACCEL * dt;
@@ -574,7 +608,7 @@ const me = { id: "", name: "", color: "#ffffff" };
 let team = null, S = null, role = "participant", fkey = null;
 let sims = [];
 const remotes = new Map();
-let model = { W:0, thrust:0, rock:0, barn:0, target:0 };
+let model = { energy:0, voices:0, votes:0, actions:0, target:0 };
 let speed = 0;
 let history = [];
 let bc = null;
@@ -612,8 +646,17 @@ function starOutcome(s = S){
   return t.yes > t.no ? "met" : "missed";
 }
 function participationOf(s = S){
-  const added = Object.keys(s.contributors || {}).length;
+  const added = Object.values(s.contributors || {}).filter(n => n > 0).length;
   return { added, present: Math.max(added, people().length) };
+}
+/* The live inputs for computeEnergy (reads the room, so not pure) */
+function energyOf(s = S){
+  return computeEnergy({
+    counts: s.contributors || {},
+    present: participationOf(s).present,
+    votesCast: s.cards.reduce((a, c) => a + totalVotes(c), 0),
+    actions: actionCounts(s.cards)
+  });
 }
 
 /* ================================================================
@@ -635,7 +678,8 @@ function apply(a, local){
     case "card.add": {
       if (byId(a.card.id)) return;
       S.cards.push(a.card);
-      if (a.by){ (S.contributors ||= {})[a.by] = 1; }
+      // Count only. The card never stores who wrote an anonymous card.
+      if (a.by){ S.contributors ||= {}; S.contributors[a.by] = (S.contributors[a.by] || 0) + 1; }
       recompute(); renderStage();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
       if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
@@ -672,14 +716,14 @@ function apply(a, local){
       S.silentUntil = a.until; syncSilent(); renderStage();
       break;
     case "config":
-      C = {...DEFAULTS, ...a.config}; team.config = C;
+      C = loadConfig(a.config); team.config = C;
       if (!local) renderParams();
       recompute(); renderStage(); renderBarnacles(); applySpeedoVisibility();
       if (!local && simTimer) ensureSims(C.SIM_PEOPLE);
       break;
     case "cards.replace":
       S.cards = a.cards; rebuildCards();
-      S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = 1; });
+      S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = (S.contributors[c.author] || 0) + 1; });
       renderCenter();
       break;
     case "starVote":
@@ -919,7 +963,7 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = computeSpeed(S.cards); renderReadout(); }
+function recompute(){ model = energyOf(); renderReadout(); }
 
 /* ================================================================
    Toasts + live region
@@ -962,6 +1006,7 @@ function renderAvatars(){
   if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
   if (S && S.phase === 0) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
+  if (S) recompute(); // speed depends on how many people are present
 }
 
 /* ================================================================
@@ -1373,15 +1418,17 @@ function renderParams(){
   }
 }
 function renderReadout(){
-  const m = model;
+  const m = model, f = x => x.toFixed(2);
   $("readout").innerHTML =
-    `wind weight W = <b>${m.W.toFixed(2)}</b><br>` +
-    `thrust = min(${C.MAX_THRUST}, ${C.WIND_GAIN}·ln(1+W)) = <b>+${m.thrust.toFixed(2)}</b><br>` +
-    `rocks <b>−${m.rock.toFixed(2)}</b> · barnacles <b>−${m.barn.toFixed(2)}</b><br>` +
-    `target = ${C.BASE_DRIFT} + thrust − drag = <b>${m.target.toFixed(2)} kn</b>`;
+    `present = <b>${m.present}</b><br>` +
+    `voices = <b>${f(m.voices)}</b> · votes = ${m.votesCast}/${m.votesAvail} = <b>${f(m.votes)}</b><br>` +
+    `actions = ${m.actPts.toFixed(1)}/${C.ACTIONS_TARGET} = <b>${f(m.actions)}</b><br>` +
+    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·votes + ${C.W_ACTIONS}·actions = <b>${f(m.energy)}</b><br>` +
+    `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b>`;
 }
 function configAsTs(){
-  const groups = { speed:["VOTE_FACTOR","WIND_GAIN","MAX_THRUST","ROCK_BASE","BARNACLE_BASE","SCRAPED_FACTOR","BASE_DRIFT","MAX_SPEED","TAU","MAX_ACCEL"],
+  const groups = { speed:["BASE_DRIFT","MAX_SPEED","W_VOICES","W_VOTES","W_ACTIONS","VOICE_1","VOICE_2","VOICE_3","ACTIONS_TARGET","UNOWNED_ACTION","TAU","MAX_ACCEL"],
+    sea:["VOTE_FACTOR"],
     retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
     scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
   return "// config/retro.ts\n" + Object.entries(groups).map(([g, keys]) =>
@@ -1445,13 +1492,13 @@ function frame(now){
   northStar.setAttribute("opacity", S.star ? 1 : .35);
   nsGlow.setAttribute("opacity", S.star ? .9 : 0);
 
-  const dragTarget = Math.min(38, model.rock * 2.6 + model.barn * 1.6);
+  const dragTarget = 0; // problems no longer slow or sink the ship
   sink += (dragTarget - sink) * (1 - Math.exp(-dt / .8));
   const bob = reduced ? 0 : Math.sin(t * 1.4) * 5;
   const tilt = (reduced ? 0 : Math.sin(t * .9) * 1.6) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
   boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
 
-  const fillTarget = clamp(model.thrust / Math.max(1, C.MAX_THRUST), 0, 1) * .85 + gustBoost * .35;
+  const fillTarget = model.energy * .85 + gustBoost * .35;
   fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
   const b = 20 + fill * 70;
   mainsail.setAttribute("d", `M-4,-250 L-4,-30 L-142,-30 Q${-71 - b},${-130 - b*.4} -4,-250 Z`);
@@ -1553,7 +1600,7 @@ async function init(){
   }
   sset("rtw-last", location.hash);
   S = team.current;
-  C = {...DEFAULTS, ...(team.config || {})};
+  C = loadConfig(team.config);
   me.name = sget("rtw-name") || "";
   if (!me.name) me.name = await askName();
   me.color = COLORS[[...me.id].reduce((a,ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
@@ -1604,7 +1651,7 @@ $("simBtn").onclick = toggleSim;
 $("silentBtn").onclick = () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 });
 $("exampleBtn").onclick = loadExample;
 $("clearBtn").onclick = () => dispatch({ type:"cards.replace", cards: [] });
-$("resetCfg").onclick = () => { C = {...DEFAULTS}; renderParams(); recompute(); renderStage(); applySpeedoVisibility(); pushConfig(); };
+$("resetCfg").onclick = () => { C = loadConfig(DEFAULTS); renderParams(); recompute(); renderStage(); applySpeedoVisibility(); pushConfig(); };
 $("copyCfg").onclick = () => copy(configAsTs(), $("copyCfg"));
 addEventListener("resize", () => team && renderAvatars());
 
