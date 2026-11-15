@@ -322,6 +322,7 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
       <text id="hullName" x="12" y="38" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
     </g>
   </g>
+  <g id="seaRocks"></g>
   <g id="splashes"></g>
   <path id="wave1" fill="#2f6f8f" opacity=".85"/>
   <path id="wave2" fill="#1d4e72" opacity=".9"/>
@@ -469,10 +470,10 @@ const DEFAULTS = {
   W_VOICES: 0.6, W_VOTES: 0.2, W_ACTIONS: 0.2,
   VOICE_1: 0.6, VOICE_2: 0.25, VOICE_3: 0.15,
   ACTIONS_TARGET: 3, UNOWNED_ACTION: 0.5,
-  VOTE_FACTOR: 0.25,
+  VOTE_FACTOR: 0.25, ROCK_TROUBLE: 1.5, BARNACLE_TROUBLE: 0.5, UNOWNED_TROUBLE: 0.5, RETURN_STEP: 0.5, RETURN_CAP: 2.5,
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
-  MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
+  MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, MAX_ROCK_SPRITES: 8, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
   SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15,
   SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
@@ -488,8 +489,13 @@ const PARAMS = [
   ["VOICE_3","3rd card adds",0,1,.05,""],
   ["ACTIONS_TARGET","Action items target",1,10,1,"Owned action items for full actions score"],
   ["UNOWNED_ACTION","Action without owner counts",0,1,.05,"Share of an owned one"],
-  ["Card weight"],
+  ["Sea state = mood (never changes speed)"],
   ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
+  ["ROCK_TROUBLE","Rock trouble",0,5,.1,"trouble = rocks × this + barnacles × …; roughness = trouble ÷ (wind + trouble)"],
+  ["BARNACLE_TROUBLE","Barnacle trouble",0,5,.1,""],
+  ["UNOWNED_TROUBLE","Action without owner keeps",0,1,.05,"Share of trouble left. With an owner it is 0."],
+  ["RETURN_STEP","Returning rock step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
+  ["RETURN_CAP","Returning rock cap",1,5,.1,"Max multiplier"],
   ["Inertia"],
   ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
   ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
@@ -507,6 +513,7 @@ const PARAMS = [
   ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
   ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
   ["MAX_BARNACLE_SPRITES","Barnacles drawn on hull",1,20,1,"The rest show as +N"],
+  ["MAX_ROCK_SPRITES","Rocks drawn in the water",1,16,1,"The rest show as +N"],
   ["TOAST_MERGE_MS","Merge toasts within (ms)",0,6000,250,"\"Ana and 3 others added wind\""],
   ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
   ["Simulation (fake data)"],
@@ -583,6 +590,31 @@ const actionCounts = cards => {
   const owned = acts.filter(c => c.owner).length;
   return { owned, unowned: acts.length - owned };
 };
+/* ================================================================
+   SEA STATE (pure — becomes lib/sea.ts). Card types set the mood, not the speed.
+     wind      = sum of wind card weights
+     trouble   = rocks × ROCK_TROUBLE + barnacles × BARNACLE_TROUBLE
+                 (owned action item: 0, action item without owner: × UNOWNED_TROUBLE,
+                  returning rock: × min(RETURN_CAP, 1 + RETURN_STEP × (streak − 1)))
+     roughness = trouble ÷ (wind + trouble), 0 with no cards
+   ================================================================ */
+const SEA_WORDS = [[.15, "Calm"], [.35, "Breezy"], [.55, "Choppy"], [.75, "Rough"], [Infinity, "Stormy"]];
+const seaWord = r => SEA_WORDS.find(([max]) => r < max)[1];
+const returnFactor = (c, cfg = C) => c.returned ? Math.min(cfg.RETURN_CAP, 1 + cfg.RETURN_STEP * ((c.returned.streak || 1) - 1)) : 1;
+function cardTrouble(c, cfg = C){
+  if (c.type === "wind") return 0;
+  if (c.scraped && c.owner) return 0;
+  const base = c.type === "rock" ? cfg.ROCK_TROUBLE : cfg.BARNACLE_TROUBLE;
+  return weight(c, cfg) * base * returnFactor(c, cfg) * (c.scraped ? cfg.UNOWNED_TROUBLE : 1);
+}
+function computeSea(cards, cfg = C){
+  let wind = 0, trouble = 0;
+  for (const c of cards){ if (c.type === "wind") wind += weight(c, cfg); else trouble += cardTrouble(c, cfg); }
+  const total = wind + trouble;
+  const roughness = total > 0 ? trouble / total : 0;
+  return { wind, trouble, roughness, windShare: total > 0 ? wind / total : 0, word: seaWord(roughness) };
+}
+const isOpenProblem = c => c.type !== "wind" && !(c.scraped && c.owner);
 function stepSpeed(v, target, dt){
   const dv = (target - v) * (1 - Math.exp(-dt / C.TAU));
   const max = C.MAX_ACCEL * dt;
@@ -608,7 +640,7 @@ const me = { id: "", name: "", color: "#ffffff" };
 let team = null, S = null, role = "participant", fkey = null;
 let sims = [];
 const remotes = new Map();
-let model = { energy:0, voices:0, votes:0, actions:0, target:0 };
+let model = { energy:0, voices:0, votes:0, actions:0, target:0, sea:{ wind:0, trouble:0, roughness:0, windShare:0, word:"Calm" } };
 let speed = 0;
 let history = [];
 let bc = null;
@@ -682,7 +714,7 @@ function apply(a, local){
       if (a.by){ S.contributors ||= {}; S.contributors[a.by] = (S.contributors[a.by] || 0) + 1; }
       recompute(); renderStage();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
-      if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
+      if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx(renderRocks(a.card.id));
       toast(a.card.type, a.card.anonymous || silentActive() ? null : a.card.authorName);
       break;
     }
@@ -691,14 +723,14 @@ function apply(a, local){
       const n = Math.max(0, (c.votes[a.pid] || 0) + a.delta);
       if (n) c.votes[a.pid] = n; else delete c.votes[a.pid];
       recompute(); renderStage();
-      if (c.type === "barnacle") renderBarnacles();
+      if (c.type === "barnacle") renderBarnacles(); else if (c.type === "rock") renderRocks();
       if (a.delta > 0 && c.type === "wind") gustBoost = Math.max(gustBoost, .5);
       if (a.delta > 0 && c.type === "rock") jolt = Math.max(jolt, .4);
       break;
     }
     case "scrape": {
       const c = byId(a.cardId); if (!c || c.scraped) return;
-      c.scraped = true; recompute(); renderBarnacles(); renderStars(); renderStage();
+      c.scraped = true; recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
       plainToast(`★ New action item: ${c.text}`);
       break;
     }
@@ -718,7 +750,7 @@ function apply(a, local){
     case "config":
       C = loadConfig(a.config); team.config = C;
       if (!local) renderParams();
-      recompute(); renderStage(); renderBarnacles(); applySpeedoVisibility();
+      recompute(); renderStage(); renderBarnacles(); renderRocks(); applySpeedoVisibility();
       if (!local && simTimer) ensureSims(C.SIM_PEOPLE);
       break;
     case "cards.replace":
@@ -823,7 +855,7 @@ function layoutConstellation(){
   const x = Math.min(1320, right - 80);
   $("northStarPos").setAttribute("transform", `translate(${x},392)`);
 }
-addEventListener("resize", layoutConstellation);
+addEventListener("resize", () => { layoutConstellation(); renderRocks(); });
 $("nsPath").setAttribute("d", starPath(30, 12));
 
 function renderStars(){
@@ -845,7 +877,7 @@ function renderStars(){
 const BARN_SLOTS = [[-100,38],[-70,46],[-40,40],[-10,48],[20,42],[50,48],[80,40],[-120,50],[-55,54],[5,56],[65,55],[105,44],[-85,30],[35,32],[-25,32],[95,30],[-110,22],[120,34],[-5,24],[60,26]];
 function renderBarnacles(newId){
   const g = $("barnacles"); g.innerHTML = "";
-  const active = S.cards.filter(c => c.type === "barnacle" && !c.scraped);
+  const active = S.cards.filter(c => c.type === "barnacle" && isOpenProblem(c));
   const shown = Math.min(active.length, C.MAX_BARNACLE_SPRITES, BARN_SLOTS.length);
   for (let i=0;i<shown;i++){
     const [x,y] = BARN_SLOTS[i]; const c = active[i];
@@ -855,10 +887,83 @@ function renderBarnacles(newId){
     el("circle", { r, fill:"#d9c7a3", stroke:"#7a6748", "stroke-width":1.5 }, inner);
     el("circle", { r: r*.4, fill:"#7a6748" }, inner);
     if (c.id === newId) inner.setAttribute("class","pop");
+    if (c.scraped) b.setAttribute("opacity", .55); // action item, no owner yet
   }
   if (active.length > shown){
     const t = el("text", { x: 130, y: 58, fill:"#fff", "font-size": 16, "font-weight": 700 }, g);
     t.textContent = `+${active.length - shown}`;
+  }
+}
+
+/* Open rocks stay in the water ahead of the ship. A rock clears (sinks away) once its
+   action item has an owner. Returning rocks are drawn larger and darker. */
+const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, clearing }
+const ROCK_D = "M-32,14 L-24,-12 L-6,-28 L14,-22 L30,-4 L36,14 Z";
+function rockSlots(){
+  const right = Math.min(1570, visibleSky().right - 36), out = [];
+  for (let x = 1015; x <= right; x += 92) out.push({ x, y: 606, s: 1 });      // front row
+  for (let x = 1060; x <= right; x += 80) out.push({ x, y: 556, s: .72 });    // further away
+  return out;
+}
+function renderRocks(newId){
+  if (!S) return null;
+  const g = $("seaRocks");
+  const open = S.cards.filter(c => c.type === "rock" && isOpenProblem(c))
+    .sort((a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0)); // returning rocks always get drawn
+  const slots = rockSlots();
+  const shown = open.slice(0, Math.min(C.MAX_ROCK_SPRITES, slots.length));
+  const keep = new Set(shown.map(c => c.id));
+  for (const [id, r] of rockEls){
+    if (keep.has(id) || r.clearing) continue;
+    const c = byId(id);
+    if (c && c.scraped && c.owner) clearRock(id, r); else { r.g.remove(); rockEls.delete(id); }
+  }
+  let made = null;
+  shown.forEach((c, i) => {
+    let r = rockEls.get(c.id);
+    if (!r){
+      const outer = el("g", {}, g), inner = el("g", {}, outer);
+      const path = el("path", { d: ROCK_D, "stroke-width": 2.5, "stroke-linejoin": "round" }, inner);
+      el("path", { d: "M-20,-8 L-6,-22 L8,-18", fill: "none", stroke: "rgba(255,255,255,.22)", "stroke-width": 3, "stroke-linecap": "round" }, inner);
+      r = { g: outer, inner, path, phase: Math.random() * 6 };
+      rockEls.set(c.id, r);
+      if (c.id === newId) made = r;
+    }
+    const slot = slots[i], back = slot.s < 1;
+    const sc = slot.s * (c.returned ? 1.5 : 1) * (1 + Math.min(4, totalVotes(c)) * .08);
+    r.x = slot.x; r.y = slot.y; r.card = c;
+    r.path.setAttribute("fill", c.returned ? "#2c3038" : back ? "#6b7380" : "#5d6470");
+    r.path.setAttribute("stroke", c.returned ? "#15181d" : "#3c414a");
+    r.g.setAttribute("transform", `translate(${slot.x},${slot.y}) scale(${sc.toFixed(3)})`);
+    r.g.setAttribute("opacity", r.hidden ? 0 : c.scraped ? .7 : 1);
+  });
+  // keep the further row behind the front row
+  [true, false].forEach(back => shown.forEach((c, i) => { if ((slots[i].s < 1) === back) g.appendChild(rockEls.get(c.id).g); }));
+  let more = g.querySelector(".more");
+  if (open.length > shown.length){
+    if (!more){ more = el("text", { class: "more", fill: "#fff", "font-size": 18, "font-weight": 700 }, g); }
+    const last = slots[shown.length - 1] || { x: 1015, y: 606 };
+    more.setAttribute("x", Math.min(last.x + 30, 1560)); more.setAttribute("y", last.y - 34);
+    more.textContent = `+${open.length - shown.length}`;
+  } else if (more) more.remove();
+  return made;
+}
+function clearRock(id, r){
+  r.clearing = true;
+  if (reduced){ r.g.remove(); rockEls.delete(id); return; }
+  const ring = el("ellipse", { cx: r.x, cy: r.y + 10, rx: 10, ry: 3, fill: "none", stroke: "#fff6cf", "stroke-width": 3 }, $("splashes"));
+  const t0 = r.g.getAttribute("transform");
+  animate(1300, p => {
+    r.g.setAttribute("transform", `translate(0,${p * p * 60}) ${t0}`);
+    r.g.setAttribute("opacity", 1 - p);
+    ring.setAttribute("rx", 10 + p * 70); ring.setAttribute("ry", 3 + p * 12); ring.setAttribute("opacity", 1 - p);
+  }, () => { r.g.remove(); ring.remove(); rockEls.delete(id); });
+}
+function tickRocks(){
+  if (reduced) return;
+  for (const r of rockEls.values()){
+    if (r.clearing) continue;
+    r.inner.setAttribute("transform", `translate(0,${(Math.sin(t * 1.3 + r.phase) * (1.5 + rough * 5)).toFixed(2)}) rotate(${(Math.sin(t * .8 + r.phase) * rough * 6).toFixed(2)})`);
   }
 }
 
@@ -891,20 +996,23 @@ function gustFx(){
     }, () => { lines.forEach(l => l.p.remove()); done(); });
   });
 }
-function rockFx(){
-  jolt = 1; sinkKick = 1;
+function rockFx(r){
+  jolt = Math.max(jolt, 1); sinkKick = 1;
+  // r: the rock sprite that stays in the water. Hidden until the falling rock lands on it.
+  const show = () => { if (r && r.hidden){ r.hidden = false; r.g.setAttribute("opacity", r.card && r.card.scraped ? .7 : 1); r.inner.setAttribute("class", "pop"); } };
+  if (r && !reduced){ r.hidden = true; r.g.setAttribute("opacity", 0); setTimeout(show, 3000); }
   fx(done => {
-    const x = 980 + Math.random()*300, landY = 560 + Math.random()*40;
+    const x = r ? r.x : 980 + Math.random()*300, landY = r ? r.y : 560 + Math.random()*40;
     const rock = el("path", { d:"M-26,10 L-18,-14 L4,-22 L24,-8 L28,12 Z", fill:"#5d6470", stroke:"#3c414a", "stroke-width":2 }, $("falling"));
     animate(520, p => {
       rock.setAttribute("transform", `translate(${x},${-60 + (landY + 60) * p*p}) rotate(${p*80})`);
     }, () => {
+      if (r){ rock.remove(); show(); }
       const splash = el("g", { transform:`translate(${x},${landY})` }, $("splashes"));
       const ring = el("ellipse", { rx: 10, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":3 }, splash);
       const drops = Array.from({length:9}, () => ({ e: el("circle",{ r: 3+Math.random()*3, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*160, vy:-(120+Math.random()*160) }));
       animate(900, p => {
-        rock.setAttribute("transform", `translate(${x},${landY + p*40}) rotate(80)`);
-        rock.setAttribute("opacity", 1 - p);
+        if (!r){ rock.setAttribute("transform", `translate(${x},${landY + p*40}) rotate(80)`); rock.setAttribute("opacity", 1 - p); }
         ring.setAttribute("rx", 10 + p*90); ring.setAttribute("ry", 3 + p*16); ring.setAttribute("opacity", 1 - p);
         const t = p*.9;
         for (const d of drops){ d.e.setAttribute("cx", d.vx*t); d.e.setAttribute("cy", d.vy*t + 400*t*t); d.e.setAttribute("opacity", 1 - p); }
@@ -950,7 +1058,7 @@ function renderPhase(){
    ================================================================ */
 function silentActive(){ return Date.now() < (S.silentUntil || 0); }
 function personVotesUsed(pid){ return S.cards.reduce((a,c) => a + (c.votes[pid]||0), 0); }
-function rebuildCards(){ recompute(); renderBarnacles(); renderStars(); renderStage(); }
+function rebuildCards(){ recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage(); }
 
 /* Actions from this person */
 function myVote(cardId, delta){
@@ -963,7 +1071,7 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = energyOf(); renderReadout(); }
+function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards) }; renderReadout(); }
 
 /* ================================================================
    Toasts + live region
@@ -1410,7 +1518,7 @@ function renderParams(){
       const num = h("input", { type:"number", "aria-label":`${label} value`, min, max, step });
       const range = h("input", { type:"range", id, min, max, step });
       num.value = range.value = C[key];
-      const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); renderStage(); renderBarnacles(); pushConfig(); };
+      const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); renderStage(); renderBarnacles(); renderRocks(); pushConfig(); };
       range.oninput = () => set(range.value);
       num.onchange = () => set(num.value);
       box.appendChild(h("div", { class:"param" }, h("label", { for:id, text:label }), num, range, help ? h("small", { text:help }) : null));
@@ -1424,13 +1532,15 @@ function renderReadout(){
     `voices = <b>${f(m.voices)}</b> · votes = ${m.votesCast}/${m.votesAvail} = <b>${f(m.votes)}</b><br>` +
     `actions = ${m.actPts.toFixed(1)}/${C.ACTIONS_TARGET} = <b>${f(m.actions)}</b><br>` +
     `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·votes + ${C.W_ACTIONS}·actions = <b>${f(m.energy)}</b><br>` +
-    `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b>`;
+    `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b><br>` +
+    `sea: wind <b>${f(m.sea.wind)}</b> · trouble <b>${f(m.sea.trouble)}</b><br>` +
+    `roughness = <b>${f(m.sea.roughness)}</b> → <b>${m.sea.word}</b>`;
 }
 function configAsTs(){
   const groups = { speed:["BASE_DRIFT","MAX_SPEED","W_VOICES","W_VOTES","W_ACTIONS","VOICE_1","VOICE_2","VOICE_3","ACTIONS_TARGET","UNOWNED_ACTION","TAU","MAX_ACCEL"],
-    sea:["VOTE_FACTOR"],
+    sea:["VOTE_FACTOR","ROCK_TROUBLE","BARNACLE_TROUBLE","UNOWNED_TROUBLE","RETURN_STEP","RETURN_CAP"],
     retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
-    scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
+    scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","MAX_ROCK_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
   return "// config/retro.ts\n" + Object.entries(groups).map(([g, keys]) =>
     `export const ${g.toUpperCase()} = {\n` + keys.map(k => `  ${k}: ${JSON.stringify(C[k])},`).join("\n") + "\n} as const;").join("\n\n") + "\n";
 }
@@ -1459,7 +1569,7 @@ function tickSilent(){
 /* ================================================================
    Main loop (60fps, writes attributes directly)
    ================================================================ */
-let last = performance.now(), t = 0, sink = 0, fill = 0, lastSample = 0, nsScale = .7, sampleN = 0;
+let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, lastSample = 0, nsScale = .7, sampleN = 0;
 const boatWrap = $("boatWrap"), mainsail = $("mainsail"), jib = $("jib"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
 const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick"), northStar = $("northStar"), nsGlow = $("nsGlow");
 
@@ -1472,11 +1582,16 @@ function frame(now){
   jolt = Math.max(0, jolt - dt * 1.4);
   sinkKick = Math.max(0, sinkKick - dt * 1.2);
 
+  // Sea state: waves grow and the boat rocks more as the sea gets rough
+  rough += (model.sea.roughness - rough) * (1 - Math.exp(-dt / 1.2));
+  const waveH = 1 + rough * 2.2;
+  for (const w of WAVES){
+    if (!reduced) w.off = (w.off + (speed * C.SCENE_SPEED_SCALE + 10) * w.k * dt) % w.len;
+    const dy = reduced ? 0 : Math.sin(t*1.1 + w.k*3) * w.amp * (.25 + rough * .6);
+    w.el.setAttribute("transform", `translate(${-w.off},${dy + w.y}) scale(1,${waveH.toFixed(3)}) translate(0,${-w.y})`);
+  }
+  tickRocks(dt);
   if (!reduced){
-    for (const w of WAVES){
-      w.off = (w.off + (speed * C.SCENE_SPEED_SCALE + 10) * w.k * dt) % w.len;
-      w.el.setAttribute("transform", `translate(${-w.off},${Math.sin(t*1.1 + w.k*3) * w.amp * .25})`);
-    }
     for (const c of clouds){
       c.x -= (speed * C.SCENE_SPEED_SCALE * .12 + 3) * c.k * dt;
       if (c.x < -200) c.x = 1750;
@@ -1492,13 +1607,13 @@ function frame(now){
   northStar.setAttribute("opacity", S.star ? 1 : .35);
   nsGlow.setAttribute("opacity", S.star ? .9 : 0);
 
-  const dragTarget = 0; // problems no longer slow or sink the ship
-  sink += (dragTarget - sink) * (1 - Math.exp(-dt / .8));
-  const bob = reduced ? 0 : Math.sin(t * 1.4) * 5;
-  const tilt = (reduced ? 0 : Math.sin(t * .9) * 1.6) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
+  // Rough sea: the boat sits a little lower and rocks harder. It never slows down.
+  sink += (rough * 14 - sink) * (1 - Math.exp(-dt / .8));
+  const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 9);
+  const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
   boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
 
-  const fillTarget = model.energy * .85 + gustBoost * .35;
+  const fillTarget = model.sea.windShare * .85 + gustBoost * .35; // sails fill with the share of wind
   fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
   const b = 20 + fill * 70;
   mainsail.setAttribute("d", `M-4,-250 L-4,-30 L-142,-30 Q${-71 - b},${-130 - b*.4} -4,-250 Z`);
@@ -1608,7 +1723,7 @@ async function init(){
 }
 
 function rebuildAll(){
-  recompute(); renderBarnacles(); renderStars(); renderTitle(); renderPhase(); renderStage(true); renderModal(); syncSilent(); applySpeedoVisibility(); renderParams();
+  recompute(); renderBarnacles(); renderRocks(); renderStars(); renderTitle(); renderPhase(); renderStage(true); renderModal(); syncSilent(); applySpeedoVisibility(); renderParams();
 }
 function start(){
   document.body.classList.toggle("is-fac", isFac());
