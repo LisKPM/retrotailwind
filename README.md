@@ -1,6 +1,6 @@
 # RetroTailWind
 
-A live sprint retrospective app. Wins add wind, problems add rocks that slow the boat, and the ship's speed changes live as the team adds items and votes. Each retro has a named ship and a goal star, five retro phases, and a logbook that carries the star from one retro to the next.
+A live sprint retrospective app. The ship's speed measures participation: every voice, vote and owned action item makes it faster. Wins and problems set the sea instead: icebergs make it rough but never slow the ship, they melt once someone owns an action for them, and an iceberg that comes back from an earlier retro rises out of the water at once, bigger than before. Each retro has a named ship and a goal star, five retro phases, action items with owners that carry over, and a logbook. Facilitators also see passive retro health there.
 
 ## Run it
 
