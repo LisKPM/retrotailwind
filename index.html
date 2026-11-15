@@ -153,6 +153,7 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 .prev-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,.06);border-radius:10px;padding:7px 10px;font-size:14px}
 .prev-item .grow{flex:1;min-width:160px}
 .prev-item .votebar{margin:0}
+#stage h2.sub-h{font-size:15px;margin:8px 0 2px;color:var(--star)}
 .back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
@@ -1372,7 +1373,7 @@ function nextStarSection(){
   } else {
     out.push(h("p", { class:"muted", text:"No rocks this retro. You can still write a star; the team vote will decide next time." }));
   }
-  const inp = h("input", { class:"textin", id:"nextStarIn", maxlength:80, placeholder:"PR reviews done within 24 hours", "aria-label":"Next star", value: ns?.text || "" });
+  const inp = h("input", { class:"textin", id:"nextStarIn", "data-fk":"nextStar", maxlength:80, placeholder:"PR reviews done within 24 hours", "aria-label":"Next star", value: ns?.text || "" });
   let t = null;
   inp.oninput = () => { clearTimeout(t); t = setTimeout(() => dispatch({ type:"nextStar", nextStar: { rockId: S.nextStar?.rockId || null, rock: S.nextStar?.rock || null, text: inp.value.trim() } }), 250); };
   out.push(inp);
@@ -1455,11 +1456,19 @@ function composer(){
 function fillStage(p){
   const dyn = $("stageDyn"); if (!dyn) return;
   const act = document.activeElement, fk = act && stage.contains(act) ? act.dataset.fk : null;
+  const typing = fk && act.tagName === "INPUT" && act.type === "text" ? { v: act.value, a: act.selectionStart, b: act.selectionEnd } : null;
   const body = stage.querySelector(".stage-body"), st = body.scrollTop;
   dyn.className = p === 2 ? "board" : p === 3 ? "course" : "";
   dyn.replaceChildren(...stageContent(p).filter(Boolean));
   body.scrollTop = st;
-  if (fk){ const e = stage.querySelector(`[data-fk="${fk}"]`); if (e && !e.disabled) e.focus(); }
+  if (fk){
+    const e = stage.querySelector(`[data-fk="${fk}"]`);
+    if (e && !e.disabled){
+      if (typing && e.tagName === "INPUT" && e.value !== typing.v){ e.value = typing.v; e.dispatchEvent(new Event("input")); }
+      e.focus();
+      if (typing && e.setSelectionRange) try { e.setSelectionRange(typing.a, typing.b); } catch {}
+    }
+  }
   $("stageStat").textContent = stageStat(p);
   stage.querySelectorAll(".min-in").forEach(i => { if (i !== document.activeElement) i.value = C[i.dataset.key]; });
 }
@@ -1472,7 +1481,7 @@ function stageStat(p){
   return "";
 }
 function stageContent(p){
-  if (p === 0) return [...prevActionsSection(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+  if (p === 0) return [...whereWeLeftOff(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
     h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
   if (p === 1){
     const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
@@ -1496,9 +1505,14 @@ function stageContent(p){
       h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
     ];
   }
-  return [h("h3", { class:"col-h", text:"★ Action items" }),
+  return [...starCheckSection("harbor"), ...nextStarSection(), h("h3", { class:"col-h", text:"★ Action items" }),
     noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Go back to Set course to pick one." : "Unowned actions rarely get done."}` }) : null,
     actList];
+}
+/* Dock: the star check and last retro's action items, above the crew list */
+function whereWeLeftOff(){
+  if (!S.star && !(S.prevActions || []).length) return [];
+  return [h("h2", { class:"sub-h", text:"Where we left off" }), ...(S.star ? starCheckSection("dock") : []), ...prevActionsSection()];
 }
 /* Last retro's action items: the facilitator marks Done / Not done, everyone sees it */
 function prevActionsSection(){
