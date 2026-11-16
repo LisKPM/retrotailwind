@@ -29,20 +29,25 @@ a{color:var(--wind)}
 body:not(.is-fac) .fac-only{display:none!important}
 
 /* the sea sits in the top part of the screen so the ship, rocks, wind and barnacles are never covered */
-#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block}
-/* Desktop: the sea is always the top half (ship and icebergs framed to fit), the cards get the
-   whole bottom half, and the speedometer sits inside the scene, so nothing covers the ship. */
+/* Every screen size: the sea is the top part (ship, wake and icebergs framed to fit) and the cards
+   are the bottom part. The speedometer rides in the card box header. Nothing ever covers the ship. */
+:root{--sea-h:50vh}
+#scene{position:fixed;top:0;left:0;width:100%;height:var(--sea-h);display:block}
+#stage{top:calc(var(--sea-h) + 8px)!important;bottom:16px!important;max-height:none!important}
+.stage-head{align-items:center;flex-wrap:wrap}
+.head-speedo{margin-left:auto;display:flex;align-items:center}
+body .head-speedo #speedo,body .head-speedo #speedHidden{position:static;transform:none;padding:3px 6px 3px 10px;gap:10px;backdrop-filter:none;background:rgba(255,255,255,.05);border-radius:12px}
+body .head-speedo #speedo svg.gauge{width:58px;height:34px}
+body .head-speedo #speedo svg.spark{display:none}
+body .head-speedo .knots{font-size:22px}
 @media (min-width:761px){
-  #scene{height:50vh}
-  #stage{top:calc(50vh + 8px)!important;bottom:16px!important;max-height:none!important}
-  .stage-head{align-items:center}
-  .head-speedo{margin-left:auto;display:flex;align-items:center}
-  body .head-speedo #speedo,body .head-speedo #speedHidden{position:static;transform:none;padding:3px 6px 3px 10px;gap:10px;backdrop-filter:none;background:rgba(255,255,255,.05);border-radius:12px}
-  body .head-speedo #speedo svg.gauge{width:58px;height:34px}
-  body .head-speedo #speedo svg.spark{display:none}
-  body .head-speedo .knots{font-size:22px}
   body .rockpick{display:grid;grid-template-columns:1fr 1fr}
   body #stage.st-harbor{width:min(720px,calc(100vw - 24px))}
+}
+@media (max-width:760px){
+  :root{--sea-h:44vh}
+  /* leave room for the Logbook / Tune bar at the bottom */
+  #stage{bottom:calc(68px + env(safe-area-inset-bottom))!important}
 }
 
 /* top bar */
@@ -1090,15 +1095,14 @@ const wideMQ = matchMedia("(min-width: 761px)");
 const ROI = { x: 420, y: 252, w: 1160, h: 398 };
 let vb = { x: 0, y: 0, w: 1600, h: 900 };
 const sceneSize = () => ({ W: $("scene").clientWidth || innerWidth, H: $("scene").clientHeight || innerHeight * .5 });
+const ROI_NARROW = { x: 490, y: 252, w: 1040, h: 398 }; // phones and narrow windows: ship and the nearest icebergs
 function fitScene(){
   const { W, H } = sceneSize();
-  if (!wideMQ.matches) vb = { x: 0, y: 0, w: 1600, h: 900 };
-  else {
-    const top = 58; // the header sits over the top of the scene
-    const s = Math.min(W / ROI.w, (H - top) / ROI.h);
-    const w = W / s, h = H / s;
-    vb = { x: ROI.x + ROI.w / 2 - w / 2, y: ROI.y - top / s - ((H - top) / s - ROI.h) / 2, w, h };
-  }
+  const roi = wideMQ.matches ? ROI : ROI_NARROW;
+  const top = wideMQ.matches ? 58 : 100; // header (and on narrow screens the step bar) sit over the top of the scene
+  const s = Math.min(W / roi.w, (H - top) / roi.h);
+  const w = W / s, h = H / s;
+  vb = { x: roi.x + roi.w / 2 - w / 2, y: roi.y - top / s - ((H - top) / s - roi.h) / 2, w, h };
   $("scene").setAttribute("viewBox", `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`);
   layoutConstellation(); renderRocks();
 }
@@ -1111,21 +1115,13 @@ function visibleSky(){
 function layoutConstellation(){
   const { right, w, top, scale } = visibleSky();
   const g = $("constellation");
-  let csLeft = right;
-  if (wideMQ.matches){
-    // the action-item stars fit the band of sky between the header and the horizon
-    const skyTop = top + 64 / scale, band = 400 - skyTop;
-    const s = clamp(Math.min(1, (band - 20) / 210, (w * .32) / 520), .3, 1);
-    g.setAttribute("transform", `translate(${right - 30 - 1560 * s},${skyTop - 60 * s}) scale(${s})`);
-    csLeft = right - 30 - 520 * s;
-  }
-  else if (right >= 1580){ g.removeAttribute("transform"); }
-  else {
-    const s = Math.min(1, (w * .8) / 520);
-    g.setAttribute("transform", `translate(${right - 24 - 1560 * s},${(1 - s) * 60 + 20}) scale(${s})`);
-  }
+  // the action-item stars fit the band of sky between the header (and step bar) and the horizon
+  const skyTop = top + (wideMQ.matches ? 64 : 104) / scale, band = 400 - skyTop;
+  const s = clamp(Math.min(1, (band - 20) / 210, (w * .32) / 520), .3, 1);
+  g.setAttribute("transform", `translate(${right - 30 - 1560 * s},${skyTop - 60 * s}) scale(${s})`);
+  const csLeft = right - 30 - 520 * s;
   // The named star sits on the horizon ahead of the boat
-  const x = wideMQ.matches ? Math.min(1320, csLeft - 70) : Math.min(1320, right - 80);
+  const x = Math.min(1320, csLeft - 70);
   $("northStarPos").setAttribute("transform", `translate(${x},392)`);
 }
 addEventListener("resize", () => S && fitScene());
@@ -1689,7 +1685,7 @@ function buildStage(p){
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
       // desktop: the speedometer rides in the card box header, so it never covers the ship
-      wideMQ.matches ? h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden")) : null),
+      h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden"))),
     stepHint(p) || "",
     body,
     h("div", { class:"stage-foot" },
@@ -2186,7 +2182,7 @@ function frame(now){
   const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 6);
   const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
   // Many open icebergs crowd the ship and push it back. Speed is untouched: it only counts participation.
-  const shipTarget = 800 - Math.min(230, model.sea.trouble * 12);
+  const shipTarget = 800 - Math.min(wideMQ.matches ? 230 : 110, model.sea.trouble * 12); // narrow screens: less, so it stays in frame
   shipX += (shipTarget - shipX) * (reduced ? 1 : 1 - Math.exp(-dt / 1.6));
   boatWrap.setAttribute("transform", `translate(${shipX.toFixed(1)},${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
 
