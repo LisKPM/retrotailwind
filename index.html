@@ -49,6 +49,12 @@ body .head-speedo .knots{font-size:22px}
   /* leave room for the Logbook / Tune bar at the bottom */
   #stage{bottom:calc(68px + env(safe-area-inset-bottom))!important}
 }
+/* Cards collapsed: only the box's header and footer stay, the sea takes the rest of the screen */
+body.cards-collapsed{--sea-h:calc(100vh - 150px)}
+body.cards-collapsed #stage{top:auto!important}
+body.cards-collapsed #stage .stage-body,body.cards-collapsed #stage .step-hint{display:none}
+@media (max-width:760px){ body.cards-collapsed{--sea-h:calc(100vh - 220px)} }
+.collapse-btn{white-space:nowrap}
 
 /* top bar */
 header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;
@@ -73,7 +79,7 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 
 /* steps sit in the top bar */
 #voyage{display:flex;justify-content:center;min-width:0}
-@media (max-width:1180px){ .step:not([aria-current="step"]) .nm{display:none} }
+@media (max-width:1180px){ .step:not([aria-current="step"]) .nm{display:none} #roleChip{display:none} }
 
 /* phases */
 #phasebar{background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:12px;padding:4px}
@@ -1457,7 +1463,7 @@ function announce(msg){ const now = Date.now(); if (now - announceT < 1500) retu
 function renderAvatars(){
   const box = $("avatars"); box.innerHTML = "";
   const all = people();
-  const max = innerWidth < 760 ? 3 : 6;
+  const max = innerWidth < 760 ? 3 : innerWidth < 1180 ? 4 : 6; // fewer avatars on narrower windows so the step bar never overlaps them
   all.slice(0, max).forEach(p => {
     box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,1).toUpperCase() }));
   });
@@ -1673,6 +1679,19 @@ function renderStage(force){
   if (force || builtPhase !== S.phase){ buildStage(S.phase); builtPhase = S.phase; }
   fillStage(S.phase);
 }
+/* Hide or show the cards, to see the whole sea. A personal view setting, so it stays in this browser. */
+let cardsCollapsed = !!sget("rtw-cards-collapsed");
+function collapseButton(){
+  return h("button", { class:"btn small ghost collapse-btn", type:"button", "aria-controls":"stage", "aria-expanded": String(!cardsCollapsed),
+    text: cardsCollapsed ? "Show cards ▴" : "Hide cards ▾", onclick: () => setCollapsed(!cardsCollapsed) });
+}
+function setCollapsed(v){
+  cardsCollapsed = v; sset("rtw-cards-collapsed", v);
+  document.body.classList.toggle("cards-collapsed", v);
+  const b = stage.querySelector(".collapse-btn");
+  if (b){ b.textContent = v ? "Show cards ▴" : "Hide cards ▾"; b.setAttribute("aria-expanded", String(!v)); }
+  requestAnimationFrame(fitScene); // the sea changed height: reframe the ship and icebergs
+}
 function buildStage(p){
   const fac = isFac();
   stage.className = "st-" + PHASES[p].key;
@@ -1684,6 +1703,7 @@ function buildStage(p){
   body.append(h("div", { id:"stageDyn" }));
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
+      collapseButton(),
       // desktop: the speedometer rides in the card box header, so it never covers the ship
       h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden"))),
     stepHint(p) || "",
@@ -2300,6 +2320,7 @@ function rebuildAll(){
 }
 function start(){
   document.body.classList.toggle("is-fac", isFac());
+  document.body.classList.toggle("cards-collapsed", cardsCollapsed);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
   try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
