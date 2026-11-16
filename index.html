@@ -404,7 +404,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <path d="M-150,-6 L178,-10 Q140,52 92,62 L-112,62 Q-146,40 -150,-6 Z" fill="#b5523f"/>
       <path d="M-150,-6 L178,-10 L172,2 L-148,6 Z" fill="#f5ead6"/>
       <g id="barnacles"></g>
-      <text id="hullName" x="12" y="31" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
+      <text id="hullName" x="12" y="27" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
     </g>
   </g>
   <g id="seaRocks"></g>
@@ -1147,8 +1147,16 @@ function renderStars(){
   });
 }
 
-// Barnacles sit below the ship's name (name baseline y 31)
-const BARN_SLOTS = [[-100,48],[-70,54],[-40,48],[-10,55],[20,48],[50,54],[80,48],[110,50],[-120,52],[-55,57],[5,57],[65,57],[-85,46],[35,46],[-25,46],[95,46],[-110,46],[125,46],[-5,47],[140,40]];
+// Barnacles cling low on the hull, below the ship's name (name baseline y 27). Each slot is the barnacle's base.
+const BARN_SLOTS = [[-92,50],[-58,52],[-24,50],[10,52],[44,50],[78,51],[-120,46],[110,47],[-75,53],[-41,53],[-7,53],[27,53],[61,53],[132,40],[-136,38],[95,53],[-108,52],[124,44],[-130,43],[140,34]];
+// A barnacle seen from the side: a ribbed little volcano of shell plates with a dark opening on top
+function barnacleShape(parent, r){
+  const hgt = r * 1.15, top = r * .42;
+  el("ellipse", { cx:0, cy:0, rx: r * 1.08, ry: r * .24, fill:"#5b2a22", opacity:.35 }, parent);
+  el("path", { d:`M${-r},0 L${-top},${-hgt} L${top},${-hgt} L${r},0 Z`, fill:"#ece4d2", stroke:"#8c7b5b", "stroke-width":1.4, "stroke-linejoin":"round" }, parent);
+  el("path", { d:`M${-r * .5},0 L${-top * .45},${-hgt} M${r * .5},0 L${top * .45},${-hgt} M0,0 L0,${-hgt * .55}`, stroke:"#b5a482", "stroke-width":1.1, fill:"none", "stroke-linecap":"round" }, parent);
+  el("ellipse", { cx:0, cy:-hgt, rx: top, ry: r * .2, fill:"#4a3828", stroke:"#8c7b5b", "stroke-width":1 }, parent);
+}
 function renderBarnacles(newId){
   const g = $("barnacles"); g.innerHTML = "";
   const active = S.cards.filter(c => c.type === "barnacle" && !c.returned && isOpenProblem(c));
@@ -1157,9 +1165,8 @@ function renderBarnacles(newId){
     const [x,y] = BARN_SLOTS[i]; const c = active[i];
     const b = el("g", { transform:`translate(${x},${y})` }, g);
     const inner = el("g", {}, b);
-    const r = 5 + Math.min(4, totalVotes(c));
-    el("circle", { r, fill:"#d9c7a3", stroke:"#7a6748", "stroke-width":1.5 }, inner);
-    el("circle", { r: r*.4, fill:"#7a6748" }, inner);
+    const r = 11 + Math.min(4, totalVotes(c)) + (i % 3 === 0 ? 1.5 : 0); // bigger with votes, a little uneven like real ones
+    barnacleShape(inner, r);
     if (c.id === newId) inner.setAttribute("class","pop");
     if (c.scraped) b.setAttribute("opacity", .55); // action item, no owner yet
   }
@@ -1178,7 +1185,7 @@ const ICE_SHADE_D = "M0,-18 L12,-40 L24,-12 L38,14 L8,14 Z";
 const ICE_BODY_D = "M-46,14 L-32,42 L-6,60 L28,54 L50,28 L38,14 Z";
 /* Size: votes make an iceberg grow (the team says it matters), a returning one starts bigger */
 const ICE_HALF = 46;
-const iceScale = c => Math.min(2.6, (c.returned ? 1.5 : 1) * (1 + Math.min(10, totalVotes(c)) * .12));
+const iceScale = c => Math.min(3.2, 1.25 * (c.returned ? 1.5 : 1) * (1 + Math.min(10, totalVotes(c)) * .12));
 function renderRocks(newId){
   if (!S) return null;
   const g = $("seaRocks");
