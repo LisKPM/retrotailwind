@@ -22,20 +22,27 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;background:#0f2f4d;color:var(--ui-text);
   font:15px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--wind)}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body:not(.is-fac) .fac-only{display:none!important}
 
 /* the sea sits in the top part of the screen so the ship, rocks, wind and barnacles are never covered */
-#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block;transition:height .45s ease}
-/* Navigate, Set course, Harbor on desktop: the cards get the room, the scene zooms in on the ship */
+#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block}
+/* Desktop: the sea is always the top half (ship and icebergs framed to fit), the cards get the
+   whole bottom half, and the speedometer sits inside the scene, so nothing covers the ship. */
 @media (min-width:761px){
-  body.wide #scene{height:40vh}
-  body.wide #stage{top:calc(40vh + 6px);max-height:none}
-  body.wide .rockpick{display:grid;grid-template-columns:1fr 1fr}
-  body.wide #stage.st-harbor{width:min(720px,calc(100vw - 24px))}
+  #scene{height:50vh}
+  #stage{top:calc(50vh + 8px)!important;bottom:16px!important;max-height:none!important}
+  .stage-head{align-items:center}
+  .head-speedo{margin-left:auto;display:flex;align-items:center}
+  body .head-speedo #speedo,body .head-speedo #speedHidden{position:static;transform:none;padding:3px 6px 3px 10px;gap:10px;backdrop-filter:none;background:rgba(255,255,255,.05);border-radius:12px}
+  body .head-speedo #speedo svg.gauge{width:58px;height:34px}
+  body .head-speedo #speedo svg.spark{display:none}
+  body .head-speedo .knots{font-size:22px}
+  body .rockpick{display:grid;grid-template-columns:1fr 1fr}
+  body #stage.st-harbor{width:min(720px,calc(100vw - 24px))}
 }
 
 /* top bar */
@@ -206,8 +213,16 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 #speedHidden{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:13px;color:var(--ui-muted);
   background:var(--ui-bg);padding:6px 8px 6px 12px;border-radius:99px;z-index:12;display:flex;align-items:center;gap:8px}
 .sea-word{color:var(--ui-text);font-weight:600}
+button.sea-word{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ui-text);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.help-h{margin:0;padding:6px 16px 0;font-size:12.5px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
+ol.sea-scale{list-style:none;margin:6px 0 0;padding:0 12px;display:grid;gap:3px}
+ol.sea-scale li{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:5px 8px;border-radius:8px;font-size:13.5px}
+ol.sea-scale li span{color:var(--ui-muted)}
+ol.sea-scale li.now{background:rgba(127,214,194,.14);box-shadow:inset 0 0 0 1px rgba(127,214,194,.5)}
+ol.sea-scale li.now span{color:var(--ui-text)}
+.sea-now{margin:8px 16px 10px;font-size:13px;color:var(--ui-muted)}
 .help-btn{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700}
-#helpPanel{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);width:min(380px,calc(100vw - 24px));z-index:26;
+#helpPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);max-height:calc(100vh - 32px);overflow:auto;width:min(420px,calc(100vw - 24px));z-index:26;
   background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:var(--radius);box-shadow:0 18px 50px rgba(0,0,0,.45)}
 .help-list{margin:0;padding:10px 16px 14px 32px;display:grid;gap:7px;font-size:14px}
 
@@ -271,6 +286,15 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .sheet h1 span{color:var(--wind)}
 .sheet label{display:grid;gap:6px;font-size:14px}
 
+/* action item dialog */
+.act-sheet{width:min(500px,100%)}
+.act-sheet h1{font-size:21px}
+.act-for{margin:0;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ui-muted)}
+.act-for b{color:var(--ui-text)}
+.act-sheet textarea{resize:vertical;min-height:58px}
+.act-sheet select{appearance:auto}
+.card p.for-line{margin:-2px 0 6px;font-size:12.5px;color:var(--ui-muted)}
+
 /* onboarding */
 .tour-sheet{width:min(480px,100%)}
 .tour-sheet p{margin:0 0 8px}
@@ -317,7 +341,6 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   #speedo .band-speed{display:none}
   .knots{font-size:21px}
   #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
-  #helpPanel{bottom:calc(134px + env(safe-area-inset-bottom))}
   #center{top:auto;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);max-height:calc(100vh - 140px)}
   #toasts{top:8px;right:8px;left:8px;max-width:none;justify-items:center}
   #mobileBar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;z-index:14}
@@ -356,7 +379,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <stop offset="1" stop-color="#ffe59a" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect width="1600" height="440" fill="url(#sky)"/>
+  <rect x="-3000" y="-3000" width="7600" height="3010" fill="#1c2f52"/>
+  <rect x="-3000" width="7600" height="440" fill="url(#sky)"/>
   <g id="constellation"></g>
   <g id="clouds"></g>
   <g id="northStarPos"><g id="northStar">
@@ -364,7 +388,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <path id="nsPath" fill="#fff6cf" stroke="#ffe59a" stroke-width="2"/>
   </g></g>
   <g id="gusts"></g>
-  <rect y="430" width="1600" height="470" fill="url(#sea)"/>
+  <rect x="-3000" y="430" width="7600" height="470" fill="url(#sea)"/>
+  <rect x="-3000" y="898" width="7600" height="3000" fill="#0f2f4d"/>
   <path id="wave0" fill="#4a8fac" opacity=".55"/>
   <g id="falling"></g>
   <g id="boatWrap">
@@ -441,14 +466,14 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   </svg>
   <div>
     <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
-    <div class="band"><span class="band-speed"><span id="band">Becalmed</span> · </span>Sea <b class="sea-word" data-sea>Calm</b></div>
+    <div class="band"><span class="band-speed"><span id="band">Becalmed</span> · </span>Sea <button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button></div>
   </div>
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button>
   <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
     <polyline id="spark" fill="none" stroke="var(--wind)" stroke-width="2" stroke-linejoin="round"/>
   </svg>
 </div>
-<div id="speedHidden" hidden>Speed hidden by facilitator · Sea <b class="sea-word" data-sea>Calm</b>
+<div id="speedHidden" hidden>Speed hidden by facilitator · Sea <button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button>
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button></div>
 
 <div id="helpPanel" role="dialog" aria-labelledby="helpTitle" hidden>
@@ -457,10 +482,14 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <ul class="help-list">
     <li><b>Speed</b> = how much of the crew is taking part: cards, votes and owned action items.</li>
     <li><b>Sea</b> = how the sprint felt. Icebergs make it rough, wind calms it.</li>
-    <li><b>Icebergs melt</b> when someone owns an action for them.</li>
+    <li><b>Icebergs melt</b> when someone owns an action for them. The more votes, the bigger the iceberg.</li>
+    <li>Many open icebergs <b>push the ship back</b>. Owning actions clears the way. Speed only counts participation.</li>
     <li>A <b>bigger iceberg</b> is a problem that came back.</li>
     <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
   </ul>
+  <h3 class="help-h" id="seaHelpTitle">Sea conditions</h3>
+  <ol class="sea-scale" id="seaScale" aria-labelledby="seaHelpTitle"></ol>
+  <p class="sea-now" id="seaNow"></p>
   <p style="margin:0;padding:0 16px 14px"><button class="btn small" type="button" id="showTour">Show the tour</button></p>
 </div>
 
@@ -503,6 +532,23 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <button class="btn primary" type="button" id="tourNext">Next</button>
     </div>
   </div>
+</div>
+
+<div id="actDlg" class="overlay" role="dialog" aria-modal="true" aria-labelledby="actTitle" hidden>
+  <form class="sheet act-sheet" id="actForm">
+    <h1 id="actTitle">Action item</h1>
+    <p class="act-for"><span class="dot" id="actDot"></span><span>For: <b id="actProblem"></b></span></p>
+    <label>What will we do?
+      <textarea class="text-in" id="actText" rows="2" maxlength="140" required placeholder="e.g. Add a staging health check before every release"></textarea></label>
+    <label>Owner <select class="text-in" id="actOwner"></select></label>
+    <p class="muted" style="margin:0">Agree on it together with the team. An action with an owner melts the iceberg.</p>
+    <div class="center-actions" style="margin-top:2px">
+      <button type="button" class="btn ghost" id="actRemove">Remove action</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" id="actCancel">Cancel</button>
+      <button type="submit" class="btn primary">Save action</button>
+    </div>
+  </form>
 </div>
 
 <div id="toasts" aria-hidden="true"></div>
@@ -627,7 +673,7 @@ const PHASES = [
   { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
   { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and barnacles. The boat reacts live." },
   { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Votes change the speed." },
-  { key:"course", name:"Set course", std:"Decide what to do",   hint:"Turn top icebergs and barnacles into action items (★)." },
+  { key:"course", name:"Set course", std:"Decide what to do",   hint:"Pick the problems to act on, then agree each action and its owner with the team." },
   { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to an iceberg, save the voyage." },
 ];
 /* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
@@ -690,6 +736,13 @@ const actionCounts = cards => {
    ================================================================ */
 const SEA_WORDS = [[.15, "Calm"], [.35, "Breezy"], [.55, "Choppy"], [.75, "Rough"], [Infinity, "Stormy"]];
 const seaWord = r => SEA_WORDS.find(([max]) => r < max)[1];
+const SEA_MEANING = {
+  Calm: "Wins carry the sprint. Few open problems.",
+  Breezy: "A few problems, but the wins still lead.",
+  Choppy: "Problems and wins are about even.",
+  Rough: "Problems outweigh the wins.",
+  Stormy: "Mostly problems, or problems that keep coming back.",
+};
 const returnFactor = (c, cfg = C) => c.returned ? Math.min(cfg.RETURN_CAP, 1 + cfg.RETURN_STEP * ((c.returned.streak || 1) - 1)) : 1;
 function cardTrouble(c, cfg = C){
   if (c.type === "wind") return 0;
@@ -764,7 +817,7 @@ const problems = cards => cards.filter(c => c.type !== "wind");
    streak = retros in a row it has appeared, this one included. */
 function findReturning(text, { starRock = null, sessions = [], prevActions = [] } = {}){
   const wasStar = !!starRock && similar(text, starRock);
-  const hadAction = prevActions.some(a => similar(text, a.text));
+  const hadAction = prevActions.some(a => similar(text, a.problem || a.text));
   const inPast = sessions.some(v => (v.rocks || []).some(r => similar(text, r)));
   if (!wasStar && !hadAction && !inPast) return null;
   let streak = 1;
@@ -809,7 +862,7 @@ function retroHealth(s, cfg = C, roomNow = 0){
     votesCast, votesAvail: present * cfg.VOTES_PER_PERSON,
     actionsCreated: acts.length, actionsOwned: acts.filter(c => c.owner).length,
     prevDone: done.length, prevTotal: prev.length,
-    held: done.filter(a => !probs.some(c => similar(c.text, a.text))).length,
+    held: done.filter(a => !probs.some(c => similar(c.text, a.problem || a.text))).length,
     returned: s.cards.filter(c => c.returned).map(c => ({ text: c.text, streak: c.returned.streak })),
     sea: computeSea(s.cards, cfg).word
   };
@@ -902,6 +955,21 @@ function apply(a, local){
     case "present":
       S.peakPresent = Math.max(S.peakPresent || 0, a.n);
       break;
+    case "action.set": {
+      const c = byId(a.cardId); if (!c || c.type === "wind" || !a.text) return;
+      const fresh = !c.scraped, newOwner = a.owner && a.owner !== c.owner;
+      c.scraped = true; c.action = a.text; c.owner = a.owner || null;
+      recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
+      plainToast(fresh ? `★ New action: ${a.text}` : newOwner ? `${a.owner} owns: ${a.text}` : `Action updated: ${a.text}`);
+      break;
+    }
+    case "action.remove": {
+      const c = byId(a.cardId); if (!c || !c.scraped) return;
+      c.scraped = false; delete c.action; c.owner = null;
+      recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
+      plainToast("Action removed");
+      break;
+    }
     case "notSame": {
       const c = byId(a.cardId); if (!c) return;
       c.returned = null; c.notSame = true;
@@ -991,10 +1059,10 @@ const WAVES = [
   { el: $("wave2"), y: 690, amp: 18, len: 340, k: 1.25 },
 ];
 for (const w of WAVES){
-  let d = `M0,${w.y}`;
-  const n = Math.ceil((1600 + w.len*2) / w.len) + 1;
-  for (let i=0;i<n;i++){ const x = i * w.len; d += ` Q${x + w.len/4},${w.y - w.amp} ${x + w.len/2},${w.y} T${x + w.len},${w.y}`; }
-  d += ` L${n*w.len},900 L0,900 Z`;
+  const x0 = -3000, n = Math.ceil((7600 + w.len*2) / w.len) + 1;
+  let d = `M${x0},${w.y}`;
+  for (let i=0;i<n;i++){ const x = x0 + i * w.len; d += ` Q${x + w.len/4},${w.y - w.amp} ${x + w.len/2},${w.y} T${x + w.len},${w.y}`; }
+  d += ` L${x0 + n*w.len},3000 L${x0},3000 Z`;
   w.el.setAttribute("d", d);
   w.off = Math.random() * w.len;
 }
@@ -1016,28 +1084,40 @@ const starEls = STAR_SLOTS.map(([x,y]) => {
   const dot = el("path", { d: starPath(7,3), fill: "#ffffff", opacity: .45 }, g);
   return { g, glow, dot };
 });
-/* The scene's camera: the full sea on Dock and Sail, zoomed on the ship when the cards need the room */
+/* The scene's camera. Desktop: the sea fills the top half and the ship (even when pushed back),
+   its wake and the icebergs always fit, whatever the screen size. Phones: the full sea as before. */
 const wideMQ = matchMedia("(min-width: 761px)");
-const VB_FULL = { y: 0, h: 900 }, VB_WIDE = { y: 208, h: 400 }; // wide: mast top to waterline, clear of the step bar
-let vb = { ...VB_FULL };
-const isWide = () => !!S && S.phase >= 2 && wideMQ.matches;
-function applyWide(){
-  document.body.classList.toggle("wide", isWide());
-  setTimeout(() => { layoutConstellation(); renderRocks(); }, reduced ? 0 : 500);
+const ROI = { x: 420, y: 252, w: 1160, h: 398 };
+let vb = { x: 0, y: 0, w: 1600, h: 900 };
+const sceneSize = () => ({ W: $("scene").clientWidth || innerWidth, H: $("scene").clientHeight || innerHeight * .5 });
+function fitScene(){
+  const { W, H } = sceneSize();
+  if (!wideMQ.matches) vb = { x: 0, y: 0, w: 1600, h: 900 };
+  else {
+    const top = 58; // the header sits over the top of the scene
+    const s = Math.min(W / ROI.w, (H - top) / ROI.h);
+    const w = W / s, h = H / s;
+    vb = { x: ROI.x + ROI.w / 2 - w / 2, y: ROI.y - top / s - ((H - top) / s - ROI.h) / 2, w, h };
+  }
+  $("scene").setAttribute("viewBox", `${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`);
+  layoutConstellation(); renderRocks();
 }
-wideMQ.addEventListener?.("change", () => S && applyWide());
+wideMQ.addEventListener?.("change", () => { fitScene(); renderStage(true); });
 function visibleSky(){
-  const scale = Math.max(innerWidth / 1600, ($("scene").clientHeight || innerHeight) / (isWide() ? VB_WIDE.h : 900));
-  const w = innerWidth / scale;
-  return { left: 800 - w/2, right: 800 + w/2, w };
+  const { W, H } = sceneSize();
+  const scale = Math.max(W / vb.w, H / vb.h), w = W / scale, cx = vb.x + vb.w / 2;
+  return { left: cx - w / 2, right: cx + w / 2, w, top: vb.y + (vb.h - H / scale) / 2, scale };
 }
 function layoutConstellation(){
-  const { right, w } = visibleSky();
+  const { right, w, top, scale } = visibleSky();
   const g = $("constellation");
-  if (isWide()){
-    // zoomed in: the action-item stars move down into the visible band of sky
-    const s = Math.min(.6, (w * .4) / 520);
-    g.setAttribute("transform", `translate(${right - 30 - 1560 * s},${250 - 60 * s}) scale(${s})`);
+  let csLeft = right;
+  if (wideMQ.matches){
+    // the action-item stars fit the band of sky between the header and the horizon
+    const skyTop = top + 64 / scale, band = 400 - skyTop;
+    const s = clamp(Math.min(1, (band - 20) / 210, (w * .32) / 520), .3, 1);
+    g.setAttribute("transform", `translate(${right - 30 - 1560 * s},${skyTop - 60 * s}) scale(${s})`);
+    csLeft = right - 30 - 520 * s;
   }
   else if (right >= 1580){ g.removeAttribute("transform"); }
   else {
@@ -1045,10 +1125,10 @@ function layoutConstellation(){
     g.setAttribute("transform", `translate(${right - 24 - 1560 * s},${(1 - s) * 60 + 20}) scale(${s})`);
   }
   // The named star sits on the horizon ahead of the boat
-  const x = isWide() ? Math.min(1180, right - 400) : Math.min(1320, right - 80);
+  const x = wideMQ.matches ? Math.min(1320, csLeft - 70) : Math.min(1320, right - 80);
   $("northStarPos").setAttribute("transform", `translate(${x},392)`);
 }
-addEventListener("resize", () => { layoutConstellation(); renderRocks(); });
+addEventListener("resize", () => S && fitScene());
 $("nsPath").setAttribute("d", starPath(30, 12));
 
 function renderStars(){
@@ -1096,68 +1176,69 @@ const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, c
 const ICE_TIP_D = "M-36,14 L-24,-8 L-12,-28 L0,-18 L12,-40 L24,-12 L38,14 Z";
 const ICE_SHADE_D = "M0,-18 L12,-40 L24,-12 L38,14 L8,14 Z";
 const ICE_BODY_D = "M-46,14 L-32,42 L-6,60 L28,54 L50,28 L38,14 Z";
-function rockSlots(){
-  const right = Math.min(1570, visibleSky().right - 36), out = [];
-  const lift = isWide() ? 24 : 0; // zoomed view: rocks sit a bit higher so the step box never hides them
-  for (let x = 1055; x <= right; x += 92) out.push({ x, y: 606 - lift, s: 1 });      // front row
-  for (let x = 1090; x <= right; x += 80) out.push({ x, y: 556 - lift, s: .72 });    // further away
-  return out;
-}
+/* Size: votes make an iceberg grow (the team says it matters), a returning one starts bigger */
+const ICE_HALF = 46;
+const iceScale = c => Math.min(2.6, (c.returned ? 1.5 : 1) * (1 + Math.min(10, totalVotes(c)) * .12));
 function renderRocks(newId){
   if (!S) return null;
   const g = $("seaRocks");
-  const open = S.cards.filter(c => (c.type === "rock" || c.returned) && isOpenProblem(c))
-    .sort((a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0)); // returning rocks always get drawn
-  const slots = rockSlots();
-  const shown = open.slice(0, Math.min(C.MAX_ROCK_SPRITES, slots.length));
-  const keep = new Set(shown.map(c => c.id));
+  const order = (a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0) || totalVotes(b) - totalVotes(a);
+  const open = S.cards.filter(c => (c.type === "rock" || c.returned) && isOpenProblem(c)).sort(order);
+  // biggest in front, closest to the ship; when the front row is full the rest sit further away
+  const right = Math.min(1575, visibleSky().right - 24);
+  let fx = 1040, bx = 1070; const placed = [];
+  for (const c of open){
+    if (placed.length >= C.MAX_ROCK_SPRITES) break;
+    const sc = iceScale(c), half = ICE_HALF * sc;
+    if (fx + 2 * half <= right){ placed.push({ c, x: fx + half, y: 620, sc, back: false }); fx += 2 * half + 8; continue; }
+    const h2 = half * .72;
+    if (bx + 2 * h2 <= right){ placed.push({ c, x: bx + h2, y: 568, sc: sc * .72, back: true }); bx += 2 * h2 + 6; }
+  }
+  const keep = new Set(placed.map(p => p.c.id));
   for (const [id, r] of rockEls){
     if (keep.has(id) || r.clearing) continue;
     const c = byId(id);
     if (c && c.scraped && c.owner) clearRock(id, r); else { r.g.remove(); rockEls.delete(id); }
   }
   let made = null;
-  shown.forEach((c, i) => {
+  for (const p of placed){
+    const c = p.c;
     let r = rockEls.get(c.id);
     if (!r){
-      const outer = el("g", {}, g), inner = el("g", {}, outer);
-      // the tip of the iceberg: a small part above the water, a bigger body under it
+      // outer: position (waterline at 0) · sg: size · inner: bobbing. The tip of the iceberg sits above the water.
+      const outer = el("g", {}, g), sg = el("g", {}, outer), inner = el("g", {}, sg);
       const body = el("path", { d: ICE_BODY_D, "stroke-width": 1.5, "stroke-linejoin": "round" }, inner);
       const path = el("path", { d: ICE_TIP_D, "stroke-width": 2, "stroke-linejoin": "round" }, inner);
       const shade = el("path", { d: ICE_SHADE_D }, inner);
       el("path", { d: "M-24,-6 L-12,-26", fill: "none", stroke: "rgba(255,255,255,.85)", "stroke-width": 2.5, "stroke-linecap": "round" }, inner);
-      r = { g: outer, inner, path, body, shade, phase: Math.random() * 6 };
+      r = { g: outer, sg, inner, path, body, shade, phase: Math.random() * 6, sc: null };
       rockEls.set(c.id, r);
       if (c.id === newId) made = r;
     }
-    const slot = slots[i], back = slot.s < 1;
-    const sc = slot.s * (c.returned ? 1.5 : 1) * (1 + Math.min(4, totalVotes(c)) * .08);
-    r.x = slot.x; r.y = slot.y; r.card = c;
-    // a returning iceberg is bigger (see sc) and a deeper, older blue
-    r.path.setAttribute("fill", c.returned ? "#cfe3ee" : back ? "#e3f1f7" : "#f2f9fc");
+    r.x = p.x; r.y = p.y; r.card = c; r.scT = p.sc;
+    if (r.sc == null || reduced) r.sc = r.scT;
+    r.sg.setAttribute("transform", `scale(${r.sc.toFixed(3)}) translate(0,-14)`);
+    // a returning iceberg is bigger and a deeper, older blue
+    r.path.setAttribute("fill", c.returned ? "#cfe3ee" : p.back ? "#e3f1f7" : "#f2f9fc");
     r.path.setAttribute("stroke", c.returned ? "#5f8fa8" : "#9cc6d8");
     r.shade.setAttribute("fill", c.returned ? "#9fc3d6" : "#c9e3ee");
     r.body.setAttribute("fill", c.returned ? "#6fa6c0" : "#a9d4e6");
     r.body.setAttribute("fill-opacity", c.returned ? .55 : .4);
     r.body.setAttribute("stroke", "none");
-    r.g.setAttribute("transform", `translate(${slot.x},${slot.y}) scale(${sc.toFixed(3)})`);
+    r.g.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y})`);
     r.g.setAttribute("opacity", r.hidden ? 0 : c.scraped ? .7 : 1);
-  });
-  // keep the further row behind the front row
-  [true, false].forEach(back => shown.forEach((c, i) => { if ((slots[i].s < 1) === back) g.appendChild(rockEls.get(c.id).g); }));
+  }
+  // the further row behind the front row
+  [true, false].forEach(back => placed.forEach(p => { if (p.back === back) g.appendChild(rockEls.get(p.c.id).g); }));
   let more = g.querySelector(".more");
-  if (open.length > shown.length){
+  if (open.length > placed.length){
     if (!more){
       more = el("g", { class: "more" }, g);
-      el("rect", { rx: 14, height: 28, y: -20, fill: "rgba(14,27,48,.78)", stroke: "rgba(255,255,255,.18)" }, more);
+      el("rect", { rx: 14, height: 28, y: -20, width: 96, fill: "rgba(14,27,48,.78)", stroke: "rgba(255,255,255,.18)" }, more);
       el("text", { x: 12, y: -1, fill: "#eef3fa", "font-size": 16, "font-weight": 600 }, more);
     }
-    // right after the last rock in the front row
-    const xs = shown.map((c, i) => slots[i]).filter(sl => sl.s === 1).map(sl => sl.x);
-    const x = Math.min((xs.length ? Math.max(...xs) : 1055) + 44, visibleSky().right - 110);
-    more.querySelector("text").textContent = `+${open.length - shown.length} more`;
-    more.querySelector("rect").setAttribute("width", 96);
-    more.setAttribute("transform", `translate(${x},${isWide() ? 532 : 556})`); // above the front wave
+    more.querySelector("text").textContent = `+${open.length - placed.length} more`;
+    more.setAttribute("transform", `translate(${Math.min(fx + 4, right - 100).toFixed(1)},574)`); // above the front wave
     g.appendChild(more);
   } else if (more) more.remove();
   return made;
@@ -1189,19 +1270,24 @@ function clearRock(id, r){
   r.clearing = true;
   if (reduced){ r.g.remove(); rockEls.delete(id); return; }
   // owned: the iceberg melts into the sea
-  const ring = el("ellipse", { cx: r.x, cy: r.y + 12, rx: 10, ry: 3, fill: "none", stroke: "#fff6cf", "stroke-width": 3 }, $("splashes"));
+  const ring = el("ellipse", { cx: r.x, cy: r.y, rx: 10, ry: 3, fill: "none", stroke: "#fff6cf", "stroke-width": 3 }, $("splashes"));
   const t0 = r.g.getAttribute("transform");
   animate(1600, p => {
     const k = 1 - p * .85;
-    r.g.setAttribute("transform", `${t0} translate(0,14) scale(${(1 - p * .3).toFixed(3)},${k.toFixed(3)}) translate(0,-14) translate(0,${(p * 18).toFixed(1)})`);
+    r.g.setAttribute("transform", `${t0} scale(${(1 - p * .3).toFixed(3)},${k.toFixed(3)}) translate(0,${(p * 18).toFixed(1)})`);
     r.g.setAttribute("opacity", 1 - p * p);
     ring.setAttribute("rx", 10 + p * 70); ring.setAttribute("ry", 3 + p * 12); ring.setAttribute("opacity", 1 - p);
   }, () => { r.g.remove(); ring.remove(); rockEls.delete(id); });
 }
-function tickRocks(){
-  if (reduced) return;
+function tickRocks(dt){
   for (const r of rockEls.values()){
     if (r.clearing) continue;
+    // grow smoothly when votes come in
+    if (r.scT != null && Math.abs(r.sc - r.scT) > .002){
+      r.sc += (r.scT - r.sc) * (reduced ? 1 : 1 - Math.exp(-dt / .4));
+      r.sg.setAttribute("transform", `scale(${r.sc.toFixed(3)}) translate(0,-14)`);
+    }
+    if (reduced) continue;
     r.inner.setAttribute("transform", `translate(0,${(Math.sin(t * 1.3 + r.phase) * (1 + rough * 2.5)).toFixed(2)}) rotate(${(Math.sin(t * .8 + r.phase) * rough * 3).toFixed(2)})`);
   }
 }
@@ -1245,7 +1331,7 @@ function rockFx(r){
   fx(done => {
     show();
     const base = r.g.getAttribute("transform");
-    const ring = el("ellipse", { cx: r.x, cy: r.y + 12, rx: 12, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":2.5 }, $("splashes"));
+    const ring = el("ellipse", { cx: r.x, cy: r.y, rx: 12, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":2.5 }, $("splashes"));
     animate(900, p => {
       const e = 1 - Math.pow(1 - p, 3);
       r.g.setAttribute("transform", `translate(0,${((1 - e) * 60).toFixed(1)}) ${base}`);
@@ -1273,7 +1359,6 @@ function onShipInput(inp){
 }
 
 function renderPhase(){
-  applyWide();
   const steps = $("steps"); steps.innerHTML = "";
   PHASES.forEach((p, i) => {
     if (i) steps.appendChild(h("li", { "aria-hidden":"true" }, h("span", { class: "sep" + (i <= S.phase ? " done" : "") })));
@@ -1305,7 +1390,7 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); renderSeaWord(); }
+function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); renderSeaWord(); if (!$("helpPanel").hidden) renderSeaHelp(); }
 let seaShown = "";
 function renderSeaWord(){
   if (model.sea.word === seaShown) return;
@@ -1415,8 +1500,8 @@ function currentSummary(){
     counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
     rocks: problems(S.cards).map(c => c.text),
     participation: S.phase === 0 ? null : participationOf(),
-    actions: S.cards.filter(c => c.scraped).map(c => c.text),
-    actionItems: S.cards.filter(c => c.scraped).map(c => ({ text: c.text, owner: c.owner || null })),
+    actions: S.cards.filter(c => c.scraped).map(c => c.action || c.text),
+    actionItems: S.cards.filter(c => c.scraped).map(c => ({ text: c.action || c.text, problem: c.text, owner: c.owner || null })),
     health: S.phase === 0 ? null : retroHealth(S, C, people().length),
     startedAt: S.startedAt, endedAt: Date.now()
   };
@@ -1588,13 +1673,16 @@ function renderStage(force){
 function buildStage(p){
   const fac = isFac();
   stage.className = "st-" + PHASES[p].key;
+  document.body.append($("speedo"), $("speedHidden")); // keep the speedometer safe while the box is rebuilt
   stage.innerHTML = "";
   const body = h("div", { class:"stage-body" });
   if (p === 0 && fac) body.append(planEditor());
   if (p === 1) body.append(composer());
   body.append(h("div", { id:"stageDyn" }));
   stage.append(
-    h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" })),
+    h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
+      // desktop: the speedometer rides in the card box header, so it never covers the ship
+      wideMQ.matches ? h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden")) : null),
     stepHint(p) || "",
     body,
     h("div", { class:"stage-foot" },
@@ -1690,7 +1778,7 @@ function stageContent(p){
     ];
   }
   return [...(S.star ? starCheckSection("harbor") : []), ...nextStarSection(), h("h3", { class:"col-h", text:"★ Action items" }),
-    noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Go back to Set course to pick one." : "Unowned actions rarely get done."}` }) : null,
+    noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Use Edit to pick one." : "Unowned actions rarely get done."}` }) : null,
     actList];
 }
 /* Dock: the star check and last retro's action items, above the crew list */
@@ -1703,7 +1791,7 @@ function prevActionsSection(){
   const list = S.prevActions || [];
   if (!list.length) return [];
   return [h("h3", { text:"Last retro's action items" }), h("ul", { class:"prev" }, list.map(x => h("li", { class:"prev-item" },
-    h("span", { class:"grow" }, x.text, h("span", { class:"muted", text: x.owner ? ` · ${x.owner}` : " · no owner" })),
+    h("span", { class:"grow" }, x.text, h("span", { class:"muted", text: (x.owner ? ` · ${x.owner}` : " · no owner") + (x.problem && x.problem !== x.text ? ` · for “${x.problem}”` : "") })),
     isFac()
       ? h("span", { class:"votebar", role:"group", "aria-label":`Result: ${x.text}` },
           h("button", { class:"btn small", type:"button", "data-fk":"pd" + x.id, "aria-pressed": String(x.done === true), text:"Done",
@@ -1713,7 +1801,9 @@ function prevActionsSection(){
       : h("span", { class: "badge inline " + (x.done === true ? "ok" : x.done === false ? "bad" : "neutral"), text: x.done === true ? "Done" : x.done === false ? "Not done" : "Not checked yet" }))))];
 }
 function tile(c, mode){
-  const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  const isAct = mode === "owner" || mode === "action";
+  const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: isAct && c.action ? c.action : c.text }));
+  if (isAct && c.action) li.append(h("p", { class:"for-line", text:`For: ${c.text}` }));
   if (c.returned && S.phase >= 2){
     li.append(h("div", { class:"back-row" },
       h("span", { class:"badge bad inline", text: returnedLabel(c.returned) }),
@@ -1731,25 +1821,45 @@ function tile(c, mode){
         h("b", { text: String(total) }),
         h("span", { class:"pips", "aria-hidden":"true" }, Array.from({ length: C.MAX_VOTES_PER_CARD }, (_, i) => h("i", { class: i < mine ? "on" : null })))),
       h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
-  } else if (mode === "owner" || mode === "action"){
-    if (mode === "owner" && isFac()){
-      const names = [...new Set(people().map(x => x.name).filter(Boolean))];
-      if (c.owner && !names.includes(c.owner)) names.push(c.owner);
-      const sel = h("select", { class:"owner-sel", "data-fk":"o" + c.id, "aria-label":`Owner: ${c.text}` },
-        h("option", { value:"", text:"No owner" }), names.map(n => h("option", { value:n, text:n })));
-      sel.value = c.owner || "";
-      sel.onchange = () => dispatch({ type:"owner", cardId: c.id, owner: sel.value || null });
-      meta.append(h("label", { class:"owner-l" }, "Owner ", sel));
-    } else {
-      meta.append(c.owner ? h("span", { text:`Owner: ${c.owner}` }) : h("span", { class:"warn-t", text:"⚠ No owner" }));
-    }
+  } else if (isAct){
+    meta.append(c.owner ? h("span", { text:`Owner: ${c.owner}` }) : h("span", { class:"warn-t", text:"⚠ No owner" }));
+    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"e" + c.id, "aria-label":`Edit action: ${c.action || c.text}`, text:"Edit", onclick: () => openActionDlg(c) }));
   } else {
     meta.append(h("span", { text: plural(total, "vote") }));
-    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", text:"★ Action item", onclick: () => dispatch({ type:"scrape", cardId: c.id }) }));
+    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"a" + c.id, "aria-label":`Make an action for: ${c.text}`, text:"★ Make an action", onclick: () => openActionDlg(c) }));
   }
   li.append(meta);
   return li;
 }
+
+/* Action items are decided, not generated: the facilitator writes what the team will do and who owns it */
+let actCard = null, actReturn = null;
+function openActionDlg(c){
+  if (!isFac()) return;
+  actCard = c.id; actReturn = document.activeElement;
+  $("actProblem").textContent = c.text; $("actDot").style.background = `var(--${c.type})`;
+  $("actText").value = c.action || "";
+  const names = [...new Set(people().map(x => x.name).filter(Boolean))];
+  if (c.owner && !names.includes(c.owner)) names.push(c.owner);
+  $("actOwner").replaceChildren(h("option", { value:"", text:"No owner yet" }), ...names.map(n => h("option", { value:n, text:n })));
+  $("actOwner").value = c.owner || "";
+  $("actRemove").hidden = !c.scraped;
+  $("actDlg").hidden = false; $("actText").focus();
+}
+function closeActionDlg(){
+  const id = actCard;
+  $("actDlg").hidden = true; actCard = null;
+  const back = actReturn && actReturn.isConnected ? actReturn : stage.querySelector(`[data-fk="e${id}"]`) || stage.querySelector(".stage-foot .btn.primary");
+  if (back) back.focus();
+}
+$("actForm").onsubmit = e => {
+  e.preventDefault();
+  const text = $("actText").value.trim(); if (!text || !actCard) return;
+  dispatch({ type:"action.set", cardId: actCard, text, owner: $("actOwner").value || null });
+  closeActionDlg();
+};
+$("actCancel").onclick = closeActionDlg;
+$("actRemove").onclick = () => { if (actCard) dispatch({ type:"action.remove", cardId: actCard }); closeActionDlg(); };
 
 /* Step timer: counts down, then keeps counting as overtime. Nothing moves on by itself. */
 let timerText = "";
@@ -1786,7 +1896,7 @@ function nextRetro(){
   const summary = currentSummary();
   const ns = S.nextStar || {};
   const star = ns.text || (ns.rock ? `“${ns.rock}” stays gone` : "");
-  const prevActions = S.cards.filter(c => c.scraped).map(c => ({ id: c.id, text: c.text, owner: c.owner || null, done: null }));
+  const prevActions = S.cards.filter(c => c.scraped).map(c => ({ id: c.id, text: c.action || c.text, problem: c.text, owner: c.owner || null, done: null }));
   const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null, prevActions });
   const sessions = [...team.sessions, summary];
   dispatch({ type:"session.next", sessions, session, trends: { fixesHeld: fixesHeldTrend(sessions) } });
@@ -1929,16 +2039,7 @@ function simStep(){
     const pool = Math.random() < .65 && problems(S.cards).length ? problems(S.cards) : S.cards;
     const c = pick(pool);
     if (canVote(c, p.id, 1)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta: 1 });
-  } else if (S.phase === 3){
-    // Facilitator's simulation: owners first, then new action items up to the target
-    const acts = S.cards.filter(c => c.scraped), loose = acts.find(c => !c.owner);
-    if (loose && Math.random() < .85) dispatch({ type:"owner", cardId: loose.id, owner: pick(sims).name });
-    else if (acts.length < C.ACTIONS_TARGET){
-      const open = problems(S.cards).filter(c => !c.scraped).sort((a, b) => (b.returned ? 1 : 0) - (a.returned ? 1 : 0) || totalVotes(b) - totalVotes(a));
-      if (!open.length) return false;
-      dispatch({ type:"scrape", cardId: open[0].id });
-    } else if (!loose) return false;
-  } else return false;
+  } else return false; // action items are decided by the facilitator with the team, never simulated
   return true;
 }
 function scheduleSim(){
@@ -1949,7 +2050,7 @@ function toggleSim(){
   const on = !simTimer;
   $("simBtn").setAttribute("aria-pressed", on);
   $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
-  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail, vote in Navigate and own actions in Set course" : "Simulated people add cards in Sail, vote in Navigate and own actions in Set course"); }
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
   else { clearTimeout(simTimer); simTimer = null; ensureSims(0); simPlan.clear(); }
 }
 function loadExample(){
@@ -2033,19 +2134,12 @@ function tickSilent(){
 /* ================================================================
    Main loop (60fps, writes attributes directly)
    ================================================================ */
-let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, lastSample = 0, nsScale = .7, sampleN = 0;
+let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, shipX = 800, lastSample = 0, nsScale = .7, sampleN = 0;
 const boatWrap = $("boatWrap"), mainsail = $("mainsail"), jib = $("jib"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
 const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick"), northStar = $("northStar"), nsGlow = $("nsGlow");
 
 function frame(now){
   const dt = Math.min(.1, (now - last) / 1000); last = now;
-  const vt = isWide() ? VB_WIDE : VB_FULL;
-  if (vb.y !== vt.y || vb.h !== vt.h){
-    const k = reduced ? 1 : 1 - Math.exp(-dt / .16);
-    vb.y += (vt.y - vb.y) * k; vb.h += (vt.h - vb.h) * k;
-    if (Math.abs(vb.y - vt.y) < .5 && Math.abs(vb.h - vt.h) < .5) vb = { ...vt };
-    $("scene").setAttribute("viewBox", `0 ${vb.y.toFixed(1)} 1600 ${vb.h.toFixed(1)}`);
-  }
   if (!reduced) t += dt;
   speed = stepSpeed(speed, model.target, dt);
 
@@ -2065,7 +2159,7 @@ function frame(now){
   if (!reduced){
     for (const c of clouds){
       c.x -= (speed * C.SCENE_SPEED_SCALE * .12 + 3) * c.k * dt;
-      if (c.x < -200) c.x = 1750;
+      if (c.x < vb.x - 250) c.x = vb.x + vb.w + 100;
       c.g.setAttribute("transform", `translate(${c.x},${c.y})`);
     }
   }
@@ -2084,7 +2178,10 @@ function frame(now){
   sink += (rough * 5 - sink) * (1 - Math.exp(-dt / .8)); // a little lower in a rough sea, never enough to drown the name
   const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 6);
   const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
-  boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
+  // Many open icebergs crowd the ship and push it back. Speed is untouched: it only counts participation.
+  const shipTarget = 800 - Math.min(230, model.sea.trouble * 12);
+  shipX += (shipTarget - shipX) * (reduced ? 1 : 1 - Math.exp(-dt / 1.6));
+  boatWrap.setAttribute("transform", `translate(${shipX.toFixed(1)},${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
 
   const fillTarget = model.sea.windShare * .85 + gustBoost * .35; // sails fill with the share of wind
   fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
@@ -2203,7 +2300,7 @@ function start(){
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
   try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
-  layoutConstellation();
+  fitScene();
   rebuildAll(); renderAvatars();
   speed = model.target;
   hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
@@ -2231,16 +2328,26 @@ $("copyLink").onclick = async () => {
   else { centerMode = "links"; renderModal(); }
 };
 let helpOpener = null;
+function renderSeaHelp(){
+  if (!S) return;
+  $("seaScale").replaceChildren(...SEA_WORDS.map(([, w]) => h("li", { class: w === model.sea.word ? "now" : null, "aria-current": w === model.sea.word ? "true" : null },
+    h("b", { text: w }), h("span", { text: SEA_MEANING[w] + (w === model.sea.word ? " (now)" : "") }))));
+  const open = S.cards.filter(isOpenProblem), ice = open.filter(c => c.type === "rock").length;
+  $("seaNow").textContent = `Right now: ${plural(ice, "open iceberg")}, ${plural(open.length - ice, "barnacle")} and ${plural(S.cards.filter(c => c.type === "wind").length, "wind card")}. Owning an action melts an iceberg and calms the sea.`;
+}
 function setHelp(open, opener){
+  if (open) renderSeaHelp();
   $("helpPanel").hidden = !open;
   document.querySelectorAll(".help-btn").forEach(b => b.setAttribute("aria-expanded", String(open)));
   if (open){ helpOpener = opener || null; $("helpClose").focus(); }
   else if (helpOpener){ helpOpener.focus(); helpOpener = null; }
 }
 document.querySelectorAll(".help-btn").forEach(b => b.onclick = () => setHelp($("helpPanel").hidden, b));
+document.querySelectorAll("button.sea-word").forEach(b => b.onclick = () => { setHelp(true, b); $("seaHelpTitle").scrollIntoView({ block: "nearest" }); });
 $("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
+  if (!$("actDlg").hidden){ closeActionDlg(); return; }
   if (!$("tour").hidden){ closeTour(); return; }
   if (!$("helpPanel").hidden){ setHelp(false); return; }
   setPanel("tunePanel", false);
