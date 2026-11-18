@@ -427,15 +427,25 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <path id="wake" fill="none" stroke="#e8f4f8" stroke-width="3" stroke-linecap="round" opacity=".55"/>
     <path id="wake2" fill="none" stroke="#e8f4f8" stroke-width="2" stroke-linecap="round" opacity=".35"/>
     <g id="boat">
-      <line x1="0" y1="-8" x2="0" y2="-262" stroke="#5a4636" stroke-width="7" stroke-linecap="round"/>
+      <!-- a two-masted square rigger: three stacked square sails on each mast -->
+      <line x1="215" y1="-20" x2="310" y2="-62" stroke="#5a4636" stroke-width="7" stroke-linecap="round"/>
+      <line x1="-60" y1="-12" x2="-60" y2="-322" stroke="#5a4636" stroke-width="9" stroke-linecap="round"/>
+      <line x1="110" y1="-14" x2="110" y2="-290" stroke="#5a4636" stroke-width="8" stroke-linecap="round"/>
       <path id="flag" fill="#f08a7e"/>
-      <path id="mainsail" fill="url(#sailGrad)" stroke="#cfc6b3" stroke-width="2"/>
-      <path id="jib" fill="url(#sailGrad)" stroke="#cfc6b3" stroke-width="2"/>
-      <line x1="2" y1="-24" x2="-146" y2="-24" stroke="#5a4636" stroke-width="5" stroke-linecap="round"/>
-      <path d="M-150,-6 L178,-10 Q140,52 92,62 L-112,62 Q-146,40 -150,-6 Z" fill="#b5523f"/>
-      <path d="M-150,-6 L178,-10 L172,2 L-148,6 Z" fill="#f5ead6"/>
+      <g id="squareSails" fill="url(#sailGrad)" stroke="#cfc6b3" stroke-width="2"></g>
+      <g id="yards" stroke="#5a4636" stroke-width="5" stroke-linecap="round"></g>
       <g id="barnacles"></g>
-      <text id="hullName" x="12" y="27" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
+      <!-- hull with a raised stern castle -->
+      <path d="M-212,-56 L-150,-52 L-140,-14 L228,-22 Q196,48 122,66 L-150,66 Q-205,34 -212,-56 Z" fill="#b5523f"/>
+      <path d="M-140,-14 L228,-22 L222,-10 L-140,-3 Z M-212,-56 L-150,-52 L-148,-44 L-210,-47 Z" fill="#f5ead6"/>
+      <path d="M-196,44 Q-150,58 -60,58 L150,56" fill="none" stroke="#8f3b2c" stroke-width="5" stroke-linecap="round"/>
+      <g fill="#ffd98a" stroke="#7a3428" stroke-width="1.5">
+        <rect x="-202" y="-38" width="12" height="10" rx="2"/><rect x="-184" y="-38" width="12" height="10" rx="2"/><rect x="-166" y="-38" width="12" height="10" rx="2"/>
+      </g>
+      <g fill="#3a1d16"><rect x="-110" y="2" width="11" height="9" rx="2"/><rect x="-70" y="1" width="11" height="9" rx="2"/><rect x="110" y="-2" width="11" height="9" rx="2"/><rect x="150" y="-3" width="11" height="9" rx="2"/></g>
+      <path d="M-140,-22 L224,-30" stroke="#5a4636" stroke-width="3" fill="none"/>
+      <g stroke="#5a4636" stroke-width="2.5"><line x1="-100" y1="-23" x2="-100" y2="-14"/><line x1="-50" y1="-24" x2="-50" y2="-15"/><line x1="50" y1="-26" x2="50" y2="-17"/><line x1="160" y1="-28" x2="160" y2="-19"/><line x1="200" y1="-29" x2="200" y2="-20"/></g>
+      <text id="hullName" x="30" y="38" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="26" letter-spacing="1.5"></text>
     </g>
   </g>
   <g id="seaRocks"></g>
@@ -657,8 +667,8 @@ const PARAMS = [
   ["UNOWNED_ACTION","Action without owner counts",0,1,.05,"Share of an owned one"],
   ["Sea state = mood (never changes speed)"],
   ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
-  ["ROCK_TROUBLE","Iceberg trouble",0,5,.1,"trouble = icebergs × this + barnacles × …; roughness = trouble ÷ (wind + trouble)"],
-  ["BARNACLE_TROUBLE","Barnacle trouble",0,5,.1,""],
+  ["ROCK_TROUBLE","Iceberg trouble",0,5,.1,"trouble = icebergs × this + torn sails × …; roughness = trouble ÷ (wind + trouble)"],
+  ["BARNACLE_TROUBLE","Torn sail trouble",0,5,.1,""],
   ["UNOWNED_TROUBLE","Action without owner keeps",0,1,.05,"Share of trouble left. With an owner it is 0."],
   ["RETURN_STEP","Returning iceberg step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
   ["RETURN_CAP","Returning iceberg cap",1,5,.1,"Max multiplier. 1.5 = a black iceberg (3rd time) roughens the sea no more than a 2nd-time one"],
@@ -678,7 +688,7 @@ const PARAMS = [
   ["Scene & performance"],
   ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
   ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
-  ["MAX_BARNACLE_SPRITES","Barnacles drawn on hull",1,20,1,"The rest show as +N"],
+  ["MAX_BARNACLE_SPRITES","Rips drawn on the sails",1,12,1,"The rest show as +N"],
   ["MAX_ROCK_SPRITES","Icebergs drawn in the water",1,16,1,"The rest show as +N"],
   ["TOAST_MERGE_MS","Merge toasts within (ms)",0,6000,250,"\"Ana and 3 others added wind\""],
   ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
@@ -704,7 +714,7 @@ function loadConfig(cfg){
 /* The 5 standard retro phases (Derby & Larsen), in nautical terms */
 const PHASES = [
   { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
-  { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and barnacles. The boat reacts live." },
+  { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and torn sails. The boat reacts live." },
   { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Every person who votes adds speed." },
   { key:"course", name:"Set course", std:"Decide what to do",   hint:"Pick the problems to act on, then agree each action and its owner with the team." },
   { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to an iceberg, save the voyage." },
@@ -1191,10 +1201,10 @@ const starEls = STAR_SLOTS.map(([x,y]) => {
 /* The scene's camera. Desktop: the sea fills the top half and the ship (even when pushed back),
    its wake and the icebergs always fit, whatever the screen size. Phones: the full sea as before. */
 const wideMQ = matchMedia("(min-width: 761px)");
-const ROI = { x: 420, y: 252, w: 1160, h: 398 };
+const ROI = { x: 380, y: 196, w: 1210, h: 470 };
 let vb = { x: 0, y: 0, w: 1600, h: 900 };
 const sceneSize = () => ({ W: $("scene").clientWidth || innerWidth, H: $("scene").clientHeight || innerHeight * .5 });
-const ROI_NARROW = { x: 490, y: 252, w: 1040, h: 398 }; // phones and narrow windows: ship and the nearest icebergs
+const ROI_NARROW = { x: 450, y: 196, w: 1100, h: 470 }; // phones and narrow windows: ship and the nearest icebergs
 function fitScene(){
   const { W, H } = sceneSize();
   const roi = wideMQ.matches ? ROI : ROI_NARROW;
@@ -1242,31 +1252,42 @@ function renderStars(){
   });
 }
 
-// Barnacles cling low on the hull, below the ship's name (name baseline y 27). Each slot is the barnacle's base.
-const BARN_SLOTS = [[-92,50],[-58,52],[-24,50],[10,52],[44,50],[78,51],[-120,46],[110,47],[-75,53],[-41,53],[-7,53],[27,53],[61,53],[132,40],[-136,38],[95,53],[-108,52],[124,44],[-130,43],[140,34]];
-// A barnacle seen from the side: a ribbed little volcano of shell plates with a dark opening on top
-function barnacleShape(parent, r){
-  const hgt = r * 1.15, top = r * .42;
-  el("ellipse", { cx:0, cy:0, rx: r * 1.08, ry: r * .24, fill:"#5b2a22", opacity:.35 }, parent);
-  el("path", { d:`M${-r},0 L${-top},${-hgt} L${top},${-hgt} L${r},0 Z`, fill:"#ece4d2", stroke:"#8c7b5b", "stroke-width":1.4, "stroke-linejoin":"round" }, parent);
-  el("path", { d:`M${-r * .5},0 L${-top * .45},${-hgt} M${r * .5},0 L${top * .45},${-hgt} M0,0 L0,${-hgt * .55}`, stroke:"#b5a482", "stroke-width":1.1, fill:"none", "stroke-linecap":"round" }, parent);
-  el("ellipse", { cx:0, cy:-hgt, rx: top, ry: r * .2, fill:"#4a3828", stroke:"#8c7b5b", "stroke-width":1 }, parent);
+/* "Could have gone better" cards (stored type "barnacle") show as rips in the sails.
+   Owning an action stitches a patch over the rip, which stays as a visible "we fixed this".
+   Slots sit well inside the square sails, so billowing never pushes a rip off the cloth. */
+const BARN_SLOTS = [[-75,-182],[110,-172],[-60,-102],[110,-98],[-60,-262],[110,-244],[-105,-112],[148,-92],[-28,-190],[80,-180],[-15,-92],[140,-182]];
+function tearShape(parent, r){
+  const k = r / 12;
+  const g = el("g", { transform:`scale(${k.toFixed(3)})` }, parent);
+  el("path", { d:"M-12,-4 L-6,-9 L-2,-3 L4,-10 L9,-2 L13,2 L6,5 L1,10 L-4,4 L-10,6 Z", fill:"#1d3a52", stroke:"#a89d86", "stroke-width":1.2, "stroke-linejoin":"round" }, g);
+  el("path", { d:"M-12,-4 L-15,-6 M13,2 L16,4 M1,10 L2,13 M4,-10 L5,-13", stroke:"#a89d86", "stroke-width":1, "stroke-linecap":"round" }, g);
+}
+function patchShape(parent, r){
+  const k = r / 12;
+  const g = el("g", { transform:`scale(${k.toFixed(3)}) rotate(-8)` }, parent);
+  el("rect", { x:-13, y:-10, width:26, height:20, rx:2, fill:"#e8c37a", stroke:"#9b7b3c", "stroke-width":1.2 }, g);
+  el("rect", { x:-10.5, y:-7.5, width:21, height:15, rx:1, fill:"none", stroke:"#7a5c26", "stroke-width":1, "stroke-dasharray":"2 2" }, g);
 }
 function renderBarnacles(newId){
   const g = $("barnacles"); g.innerHTML = "";
-  const active = S.cards.filter(c => c.type === "barnacle" && !c.returned && isOpenProblem(c));
+  // open rips first, then the patches of owned ones
+  const all = S.cards.filter(c => c.type === "barnacle" && !c.returned);
+  const active = [...all.filter(isOpenProblem), ...all.filter(c => !isOpenProblem(c))];
   const shown = Math.min(active.length, C.MAX_BARNACLE_SPRITES, BARN_SLOTS.length);
   for (let i=0;i<shown;i++){
     const [x,y] = BARN_SLOTS[i]; const c = active[i];
     const b = el("g", { transform:`translate(${x},${y})` }, g);
     const inner = el("g", {}, b);
-    const r = 11 + Math.min(4, totalVotes(c)) + (i % 3 === 0 ? 1.5 : 0); // bigger with votes, a little uneven like real ones
-    barnacleShape(inner, r);
+    const r = 10 + Math.min(6, totalVotes(c) * 1.5) + (i % 3 === 0 ? 1.5 : 0); // bigger with votes, a little uneven
+    if (isOpenProblem(c)) tearShape(inner, r); else patchShape(inner, r);
     if (c.id === newId) inner.setAttribute("class","pop");
     if (c.scraped) b.setAttribute("opacity", .55); // action item, no owner yet
   }
   if (active.length > shown){
-    const t = el("text", { x: 130, y: 58, fill:"#fff", "font-size": 16, "font-weight": 700 }, g);
+    // more rips than room on the sails: a "+N" pennant at the top of the main mast
+    const more = el("g", { transform:"translate(-60,-346)" }, g);
+    el("rect", { x:-26, y:-15, width:52, height:26, rx:13, fill:"#1d3a52", stroke:"#e8c37a", "stroke-width":2 }, more);
+    const t = el("text", { x:0, y:5, "text-anchor":"middle", fill:"#ffe59a", "font-size": 16, "font-weight": 700 }, more);
     t.textContent = `+${active.length - shown}`;
   }
 }
@@ -1299,7 +1320,7 @@ function renderRocks(newId){
   const open = S.cards.filter(c => (c.type === "rock" || c.returned) && isOpenProblem(c)).sort(order);
   // biggest in front, closest to the ship; when the front row is full the rest sit further away
   const right = Math.min(1575, visibleSky().right - 24);
-  let fx = 1040, bx = 1070; const placed = [];
+  let fx = 1130, bx = 1160; const placed = []; // start past the bowsprit
   // Shrink every iceberg by the same amount so they all fit side by side in the front row
   // (no small one hidden behind a big one). Sizes stay in proportion; the back row is a last resort.
   const shown = open.slice(0, C.MAX_ROCK_SPRITES);
@@ -1467,7 +1488,7 @@ function renderTitle(){
   const t = $("hullName");
   t.removeAttribute("textLength"); t.removeAttribute("lengthAdjust");
   t.textContent = S.ship || "";
-  try { if (S.ship && t.getComputedTextLength() > 220){ t.setAttribute("textLength", 220); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch {}
+  try { if (S.ship && t.getComputedTextLength() > 280){ t.setAttribute("textLength", 280); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch {}
   const inp = $("shipName");
   if (inp && document.activeElement !== inp) inp.value = S.ship || "";
   document.title = `${S.ship || team.name} · RetroTailWind`;
@@ -1521,7 +1542,7 @@ function renderSeaWord(){
 /* ================================================================
    Toasts + live region
    ================================================================ */
-const VERB = { wind:"added wind", rock:"spotted an iceberg", barnacle:"found a barnacle" };
+const VERB = { wind:"added wind", rock:"spotted an iceberg", barnacle:"found a tear in the sail" };
 /* Card type icons, drawn to match the scene (emoji render differently on every system) */
 function typeIcon(type, size = 24){
   const svg = el("svg", { viewBox:"0 0 24 24", width:size, height:size, "aria-hidden":"true", class:"type-ico", style:`color:var(--${type})` });
@@ -1534,8 +1555,10 @@ function typeIcon(type, size = 24){
     el("path", { d:"M1.5 14 H22.5", stroke:"currentColor", "stroke-width":1.8, "stroke-linecap":"round" }, svg);
     el("path", { d:"M4.5 16.5 L8 21 H16.5 L20 16.5", fill:"none", stroke:"currentColor", "stroke-opacity":.55, "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round", "stroke-dasharray":"2 2.2" }, svg);
   } else {
-    el("circle", { cx:12, cy:12, r:7.5, fill:"none", stroke:"currentColor", "stroke-width":2.2 }, svg);
-    el("circle", { cx:12, cy:12, r:3, fill:"currentColor" }, svg);
+    // a sail with a rip in it
+    el("path", { d:"M11 2.5 V20 H3 Z", fill:"currentColor", "fill-opacity":.25, stroke:"currentColor", "stroke-width":1.8, "stroke-linejoin":"round" }, svg);
+    el("path", { d:"M13.5 4.5 V20 H21 Z", fill:"currentColor", "fill-opacity":.25, stroke:"currentColor", "stroke-width":1.8, "stroke-linejoin":"round" }, svg);
+    el("path", { d:"M5.5 15.5 L7.2 13.4 L8 15 L9.4 12.8", fill:"none", stroke:"currentColor", "stroke-width":1.8, "stroke-linecap":"round", "stroke-linejoin":"round" }, svg);
   }
   return svg;
 }
@@ -1723,7 +1746,7 @@ function starCheckSection(where){
       const m = rockMatches(), ret = rockReturnedOf();
       out.push(m.length
         ? h("div", {}, h("p", { class:"muted", text:"These cards look like the same iceberg:" }), h("ul", { class:"matches" }, m.map(c => h("li", { text: c.text }))))
-        : h("p", { class:"muted", text:"No matching iceberg or barnacle this retro." }));
+        : h("p", { class:"muted", text:"No matching iceberg or torn sail this retro." }));
       if (isFac()){
         out.push(h("div", { class:"votebar" },
           h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === true), text:"It came back", onclick: () => dispatch({ type:"rockReturned", value: true }) }),
@@ -1749,7 +1772,7 @@ function nextStarSection(){
       : h("p", { class:"muted", text:"The facilitator is picking the next star from today's icebergs." }));
     return out;
   }
-  out.push(h("p", { class:"muted", text:"Pick the iceberg or barnacle you most want gone. Then write the star as what you'll see when it's gone." }));
+  out.push(h("p", { class:"muted", text:"Pick the iceberg or torn sail you most want gone. Then write the star as what you'll see when it's gone." }));
   const top = problems(S.cards).slice().sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 6);
   if (top.length){
     out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Iceberg for the next star" }, top.map(c => {
@@ -1776,7 +1799,7 @@ function nextStarSection(){
 const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
 const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
 const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
-const TYPES = [["wind","Wind"],["rock","Iceberg"],["barnacle","Barnacle"]];
+const TYPES = [["wind","Wind"],["rock","Iceberg"],["barnacle","Torn sail"]];
 const TOP_N = 5;
 const stage = $("stage");
 const myCards = new Set();
@@ -2127,7 +2150,7 @@ const TOURS = {
     ["Three kinds of cards", () => [h("ul", { class:"tour-list" },
       h("li", { class:"tour-type" }, typeIcon("wind", 20), h("span", {}, h("b", { text:"Wind" }), ": what helped us."), h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
       h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Iceberg" }), ": what blocked us."), h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
-      h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Barnacle" }), ": small things that slow us down."), h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
+      h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Torn sail" }), ": small things that could have gone better."), h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
     ["Every card moves the ship", () => [
       h("p", { text:"Every card you add makes the ship faster. Icebergs make the sea rough, they never slow the ship." }),
       h("p", { text:"You can post anonymously." })]],
@@ -2337,7 +2360,12 @@ function tickSilent(){
    Main loop (60fps, writes attributes directly)
    ================================================================ */
 let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, shipX = 800, lastSample = 0, nsScale = .7, sampleN = 0;
-const boatWrap = $("boatWrap"), mainsail = $("mainsail"), jib = $("jib"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
+const boatWrap = $("boatWrap"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
+// [mast x, top y, bottom y, half width]: main course and topsail, fore course and topsail
+// [mast x, yard y, foot y, half width]: course, topsail and topgallant on each mast
+const SQUARE_SAILS = [[-60,-140,-58,96],[-60,-226,-152,80],[-60,-296,-236,60],[110,-132,-56,80],[110,-208,-144,66],[110,-272,-218,50]];
+const sqEls = SQUARE_SAILS.map(() => el("path", {}, $("squareSails")));
+SQUARE_SAILS.forEach(([x, y0, , w]) => el("line", { x1: x - w - 6, y1: y0, x2: x + w + 6, y2: y0 }, $("yards")));
 const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick"), northStar = $("northStar"), nsGlow = $("nsGlow");
 
 function frame(now){
@@ -2388,15 +2416,17 @@ function frame(now){
   const fillTarget = model.sea.windShare * .85 + gustBoost * .35; // sails fill with the share of wind
   fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
   const b = 20 + fill * 70;
-  mainsail.setAttribute("d", `M-4,-250 L-4,-30 L-142,-30 Q${-71 - b},${-130 - b*.4} -4,-250 Z`);
-  jib.setAttribute("d", `M6,-240 L168,-16 L12,-22 Q${60 + b*.7},${-110 - b*.2} 6,-240 Z`);
+  // square sails belly forward with the wind
+  const bulge = 6 + b * .18;
+  SQUARE_SAILS.forEach(([x, y0, y1, w], i) => sqEls[i].setAttribute("d",
+    `M${x - w},${y0} L${x + w},${y0} Q${x + w + bulge * .5},${(y0 + y1) / 2} ${x + w * .9},${y1} Q${x},${y1 + bulge * .55} ${x - w * .9},${y1} Q${x - w + bulge * .5},${(y0 + y1) / 2} ${x - w},${y0} Z`));
   const fl = reduced ? 0 : Math.sin(t * (4 + speed)) * (3 + speed * .5);
-  flag.setAttribute("d", `M0,-262 Q-22,${-262 + fl} -44,-256 L-40,-246 Q-20,${-246 + fl} 0,-244 Z`);
+  flag.setAttribute("d", `M-60,-322 Q-86,${-322 + fl} -112,-315 L-108,-303 Q-84,${-303 + fl} -60,-300 Z`);
 
   const L = 30 + speed * 34;
   const wy = 46 + (reduced ? 0 : Math.sin(t*3) * 2);
-  wake.setAttribute("d", `M-150,${wy} q${-L/2},${8} ${-L},${4}`);
-  wake2.setAttribute("d", `M-140,${wy+10} q${-L*.35},${10} ${-L*.7},${12}`);
+  wake.setAttribute("d", `M-200,${wy} q${-L/2},${8} ${-L},${4}`);
+  wake2.setAttribute("d", `M-190,${wy+10} q${-L*.35},${10} ${-L*.7},${12}`);
   wake.setAttribute("opacity", .2 + Math.min(.5, speed / 20));
 
   for (let i = anims.length - 1; i >= 0; i--){
@@ -2536,7 +2566,7 @@ function renderSeaHelp(){
   $("seaScale").replaceChildren(...SEA_WORDS.map(([, w]) => h("li", { class: w === model.sea.word ? "now" : null, "aria-current": w === model.sea.word ? "true" : null },
     h("b", { text: w }), h("span", { text: SEA_MEANING[w] + (w === model.sea.word ? " (now)" : "") }))));
   const open = S.cards.filter(isOpenProblem), ice = open.filter(c => c.type === "rock").length;
-  $("seaNow").textContent = `Right now: ${plural(ice, "open iceberg")}, ${plural(open.length - ice, "barnacle")} and ${plural(S.cards.filter(c => c.type === "wind").length, "wind card")}. Owning an action melts an iceberg and calms the sea.`;
+  $("seaNow").textContent = `Right now: ${plural(ice, "open iceberg")}, ${plural(open.length - ice, "torn sail")} and ${plural(S.cards.filter(c => c.type === "wind").length, "wind card")}. Owning an action melts an iceberg or patches a sail, and calms the sea.`;
 }
 function setHelp(open, opener){
   if (open) renderSeaHelp();
