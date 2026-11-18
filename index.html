@@ -1200,7 +1200,7 @@ const ICE_BODY_D = "M-46,14 L-32,42 L-6,60 L28,54 L50,28 L38,14 Z";
 /* Size: votes make an iceberg grow (the team says it matters). A returning one starts bigger:
    2nd retro in a row ×1.5 and grey-blue, 3rd in a row or more ×2 and black. Looks only:
    a black iceberg makes the sea no rougher than any returning one (RETURN_CAP). */
-const ICE_HALF = 46;
+const ICE_HALF = 52; // half-width incl. the wider body under water, so neighbours never overlap
 const backStreak = c => c.returned ? Math.max(2, c.returned.streak || 2) : 1;
 const iceStage = c => { const n = backStreak(c); return n >= 3 ? "black" : n === 2 ? "back" : "new"; };
 const ICE_STAGE_SIZE = { new: 1, back: 1.5, black: 2 };
@@ -1219,9 +1219,14 @@ function renderRocks(newId){
   // biggest in front, closest to the ship; when the front row is full the rest sit further away
   const right = Math.min(1575, visibleSky().right - 24);
   let fx = 1040, bx = 1070; const placed = [];
+  // Shrink every iceberg by the same amount so they all fit side by side in the front row
+  // (no small one hidden behind a big one). Sizes stay in proportion; the back row is a last resort.
+  const shown = open.slice(0, C.MAX_ROCK_SPRITES);
+  const need = shown.reduce((a, c) => a + 2 * ICE_HALF * iceScale(c) + 8, 0);
+  const fit = need > 0 ? clamp((right - fx) / need, .5, 1) : 1;
   for (const c of open){
     if (placed.length >= C.MAX_ROCK_SPRITES) break;
-    const sc = iceScale(c), half = ICE_HALF * sc;
+    const sc = iceScale(c) * fit, half = ICE_HALF * sc;
     if (fx + 2 * half <= right){ placed.push({ c, x: fx + half, y: 620, sc, back: false }); fx += 2 * half + 8; continue; }
     const h2 = half * .72;
     if (bx + 2 * h2 <= right){ placed.push({ c, x: bx + h2, y: 568, sc: sc * .72, back: true }); bx += 2 * h2 + 6; }
@@ -1287,17 +1292,17 @@ function returnFx(r){
   setTimeout(show, 3000);
   fx(done => {
     show();
-    const base = r.g.getAttribute("transform");
+    const base = () => `translate(${r.x.toFixed(1)},${r.y})`; // live: other icebergs may move this one mid-rise
     const splash = el("g", { transform:`translate(${r.x},${r.y + 6})` }, $("splashes"));
     const ring = el("ellipse", { rx: 14, ry: 4, fill:"none", stroke:"#e8f4f8", "stroke-width":4 }, splash);
     const drops = Array.from({length:16}, () => ({ e: el("circle",{ r: 3+Math.random()*4, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*240, vy:-(180+Math.random()*220) }));
     animate(1100, p => {
       const e = 1 - Math.pow(1 - Math.min(1, p * 1.3), 3);
-      r.g.setAttribute("transform", `translate(0,${((1 - e) * 110).toFixed(1)}) ${base}`);
+      r.g.setAttribute("transform", `translate(0,${((1 - e) * 110).toFixed(1)}) ${base()}`);
       ring.setAttribute("rx", 14 + p*150); ring.setAttribute("ry", 4 + p*24); ring.setAttribute("opacity", 1 - p);
       const tt = p*.9;
       for (const d of drops){ d.e.setAttribute("cx", d.vx*tt); d.e.setAttribute("cy", d.vy*tt + 450*tt*tt); d.e.setAttribute("opacity", 1 - p); }
-    }, () => { r.g.setAttribute("transform", base); splash.remove(); done(); });
+    }, () => { r.g.setAttribute("transform", base()); splash.remove(); done(); });
   });
 }
 function clearRock(id, r){
@@ -1364,13 +1369,13 @@ function rockFx(r){
   setTimeout(show, 3000);
   fx(done => {
     show();
-    const base = r.g.getAttribute("transform");
+    const base = () => `translate(${r.x.toFixed(1)},${r.y})`; // live: other icebergs may move this one mid-rise
     const ring = el("ellipse", { cx: r.x, cy: r.y, rx: 12, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":2.5 }, $("splashes"));
     animate(900, p => {
       const e = 1 - Math.pow(1 - p, 3);
-      r.g.setAttribute("transform", `translate(0,${((1 - e) * 60).toFixed(1)}) ${base}`);
+      r.g.setAttribute("transform", `translate(0,${((1 - e) * 60).toFixed(1)}) ${base()}`);
       ring.setAttribute("rx", 12 + p*70); ring.setAttribute("ry", 3 + p*12); ring.setAttribute("opacity", 1 - p);
-    }, () => { r.g.setAttribute("transform", base); ring.remove(); done(); });
+    }, () => { r.g.setAttribute("transform", base()); ring.remove(); done(); });
   });
 }
 
