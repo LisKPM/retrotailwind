@@ -77,7 +77,15 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 #avatars{display:flex;align-items:center}
 .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
   color:#0d1a2e;border:2px solid #0e1b30;margin-left:-4px;font-size:13px}
-.av.more{background:#2a3d5c;color:var(--ui-text)}
+.av.more{background:#2a3d5c;color:var(--ui-text);cursor:pointer;font:inherit;font-size:12px;font-weight:700;padding:0;width:auto;min-width:28px;border-radius:14px;padding:0 6px}
+.av.more:hover,.av.more[aria-expanded=true]{background:#3a5280}
+#avatars{position:relative}
+#crewList{position:absolute;top:calc(100% + 8px);right:0;z-index:40;min-width:200px;max-height:60vh;overflow:auto;background:#101c33;
+  border:1px solid var(--ui-line);border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#crewList h3{margin:2px 6px 6px;font-size:12px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
+#crewList ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+#crewList li{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:8px;font-size:14px}
+#crewList li .av{margin:0;width:24px;height:24px;font-size:11px;flex:none}
 .btn{background:rgba(255,255,255,.1);border:1px solid var(--ui-line);border-radius:10px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .btn:hover{background:rgba(255,255,255,.18)}
 .btn[aria-pressed="true"],.btn.on{background:rgba(127,214,194,.25);border-color:rgba(127,214,194,.6)}
@@ -1615,6 +1623,9 @@ function fade(d){ d.style.opacity = 0; setTimeout(() => d.remove(), 400); }
 let announceT = 0;
 function announce(msg){ const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
 
+let crewOpen = false;
+document.addEventListener("click", e => { if (crewOpen && !e.target.closest("#crewList")){ crewOpen = false; renderAvatars(); } });
+document.addEventListener("keydown", e => { if (crewOpen && e.key === "Escape"){ crewOpen = false; renderAvatars(); } });
 function renderAvatars(){
   const box = $("avatars"); box.innerHTML = "";
   const all = people();
@@ -1622,7 +1633,17 @@ function renderAvatars(){
   all.slice(0, max).forEach(p => {
     box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,1).toUpperCase() }));
   });
-  if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
+  if (all.length > max){
+    // "+N" opens the full crew list (names only, never who has written or voted)
+    const more = h("button", { type:"button", class:"av more", text:`+${all.length - max}`, "aria-expanded": String(crewOpen),
+      "aria-controls":"crewList", title:"Show everyone in the crew" });
+    more.onclick = e => { e.stopPropagation(); crewOpen = !crewOpen; renderAvatars(); };
+    box.appendChild(more);
+  } else crewOpen = false;
+  if (crewOpen) box.appendChild(h("div", { id:"crewList", role:"dialog", "aria-label":"Crew" },
+    h("h3", { text:`Crew · ${all.length}` }),
+    h("ul", {}, all.map(p => h("li", {}, h("span", { class:"av", style:`background:${p.color}`, text:(p.name || "?").slice(0,1).toUpperCase() }),
+      h("span", { text: p.id === me.id ? `${p.name} (you)` : p.name }))))));
   if (S && S.phase === 0) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
   if (S) recompute(); // speed depends on how many people are present
