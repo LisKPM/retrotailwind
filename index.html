@@ -491,11 +491,11 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <div class="panel-head"><h2 id="helpTitle">How the ship works</h2>
     <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
   <ul class="help-list">
-    <li><b>Speed</b> = how much of the crew is taking part: cards, votes and owned action items.</li>
+    <li><b>Speed</b> = how much of the crew is taking part: cards in Sail (half), people who vote in Navigate (30%) and owned action items (20%). It only goes up.</li>
     <li><b>Sea</b> = how the sprint felt. Icebergs make it rough, wind calms it.</li>
     <li><b>Icebergs melt</b> when someone owns an action for them. The more votes, the bigger the iceberg.</li>
     <li>Many open icebergs <b>push the ship back</b>. Owning actions clears the way. Speed only counts participation.</li>
-    <li>A <b>bigger iceberg</b> is a problem that came back.</li>
+    <li>A <b>bigger, grey iceberg</b> is a problem that came back. Back <b>3 retros in a row</b>, it turns <b>black</b>.</li>
     <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
   </ul>
   <h3 class="help-h" id="seaHelpTitle">Sea conditions</h3>
@@ -611,12 +611,12 @@ async function sha(s){
    The facilitator's values are shared with the whole room.
    ================================================================ */
 const DEFAULTS = {
-  CONFIG_V: 2,
+  CONFIG_V: 3,
   BASE_DRIFT: 1, MAX_SPEED: 14,
-  W_VOICES: 0.6, W_VOTES: 0.2, W_ACTIONS: 0.2,
+  W_VOICES: 0.5, W_VOTES: 0.3, W_ACTIONS: 0.2,
   VOICE_1: 0.6, VOICE_2: 0.25, VOICE_3: 0.15,
   ACTIONS_TARGET: 3, UNOWNED_ACTION: 0.5,
-  VOTE_FACTOR: 0.25, ROCK_TROUBLE: 1.5, BARNACLE_TROUBLE: 0.5, UNOWNED_TROUBLE: 0.5, RETURN_STEP: 0.5, RETURN_CAP: 2.5,
+  VOTE_FACTOR: 0.25, ROCK_TROUBLE: 1.5, BARNACLE_TROUBLE: 0.5, UNOWNED_TROUBLE: 0.5, RETURN_STEP: 0.5, RETURN_CAP: 1.5,
   TAU: 2.5, MAX_ACCEL: 2.5,
   VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
   MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, MAX_ROCK_SPRITES: 5, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
@@ -627,9 +627,9 @@ const PARAMS = [
   ["Speed = crew energy"],
   ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed when nobody takes part. Problems never go below it."],
   ["MAX_SPEED","Max speed (kn)",4,30,1,"Speed at full energy, and the speedometer top"],
-  ["W_VOICES","Voices weight",0,1,.05,"energy = voices × this + votes × … + actions × …"],
-  ["W_VOTES","Votes weight",0,1,.05,""],
-  ["W_ACTIONS","Actions weight",0,1,.05,""],
+  ["W_VOICES","Sail share (cards)",0,1,.05,"energy = Sail × this + Navigate × … + Set course × …"],
+  ["W_VOTES","Navigate share (people who voted)",0,1,.05,""],
+  ["W_ACTIONS","Set course share (owned actions)",0,1,.05,""],
   ["VOICE_1","1st card per person",0,1,.05,"Each person's voice: 1st card + 2nd + 3rd. More add nothing."],
   ["VOICE_2","2nd card adds",0,1,.05,""],
   ["VOICE_3","3rd card adds",0,1,.05,""],
@@ -641,7 +641,7 @@ const PARAMS = [
   ["BARNACLE_TROUBLE","Barnacle trouble",0,5,.1,""],
   ["UNOWNED_TROUBLE","Action without owner keeps",0,1,.05,"Share of trouble left. With an owner it is 0."],
   ["RETURN_STEP","Returning iceberg step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
-  ["RETURN_CAP","Returning iceberg cap",1,5,.1,"Max multiplier"],
+  ["RETURN_CAP","Returning iceberg cap",1,5,.1,"Max multiplier. 1.5 = a black iceberg (3rd time) roughens the sea no more than a 2nd-time one"],
   ["Inertia"],
   ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
   ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
@@ -675,6 +675,8 @@ const OLD_SPEED_KEYS = ["WIND_GAIN","MAX_THRUST","ROCK_BASE","BARNACLE_BASE","SC
 function loadConfig(cfg){
   const c = {...(cfg || {})};
   if (!c.CONFIG_V) OLD_SPEED_KEYS.forEach(k => delete c[k]);
+  // v3: Sail 50 / Navigate 30 / Set course 20, and a black iceberg no longer roughens the sea
+  if ((c.CONFIG_V || 0) < 3) ["W_VOICES","W_VOTES","W_ACTIONS","RETURN_CAP"].forEach(k => delete c[k]);
   for (const k of OLD_SPEED_KEYS) if (!(k in DEFAULTS)) delete c[k];
   return {...DEFAULTS, ...c, CONFIG_V: DEFAULTS.CONFIG_V};
 }
@@ -683,7 +685,7 @@ function loadConfig(cfg){
 const PHASES = [
   { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
   { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and barnacles. The boat reacts live." },
-  { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Votes change the speed." },
+  { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Every person who votes adds speed." },
   { key:"course", name:"Set course", std:"Decide what to do",   hint:"Pick the problems to act on, then agree each action and its owner with the team." },
   { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to an iceberg, save the voyage." },
 ];
@@ -708,10 +710,13 @@ const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|s
    Speed measures participation, never problems.
      voices  = average over everyone present of each person's voice
                (1st card VOICE_1, 2nd +VOICE_2, 3rd +VOICE_3, more add nothing)
-     votes   = votes cast ÷ (present × VOTES_PER_PERSON)
+     votes   = people who voted ÷ present (every voter adds speed, not every vote)
      actions = (owned + unowned × UNOWNED_ACTION) ÷ ACTIONS_TARGET, capped at 1
      energy  = W_VOICES·voices + W_VOTES·votes + W_ACTIONS·actions
      speed   = BASE_DRIFT + (MAX_SPEED − BASE_DRIFT) × energy
+   Defaults: Sail (voices) 50%, Navigate (voters) 30%, Set course (actions) 20%.
+   Within a retro the speed only goes up: energyOf keeps the highest energy reached,
+   so someone joining late never slows the ship.
    ================================================================ */
 const totalVotes = c => Object.values(c.votes || {}).reduce((a,b)=>a+b,0);
 const weight = (c, cfg = C) => 1 + totalVotes(c) * cfg.VOTE_FACTOR;
@@ -720,17 +725,17 @@ function voiceScore(n, cfg = C){
 }
 /* counts: { personId: cards added }, present: people in the room,
    votesCast: all votes on all cards, actions: { owned, unowned } */
-function computeEnergy({ counts = {}, present = 0, votesCast = 0, actions = { owned:0, unowned:0 } }, cfg = C){
+function computeEnergy({ counts = {}, present = 0, votesCast = 0, voters = 0, actions = { owned:0, unowned:0 } }, cfg = C){
   const ids = Object.keys(counts).filter(k => counts[k] > 0);
   const n = Math.max(present, ids.length);
   const voices = n ? clamp(ids.reduce((a, k) => a + voiceScore(counts[k], cfg), 0) / n, 0, 1) : 0;
   const votesAvail = n * cfg.VOTES_PER_PERSON;
-  const votes = votesAvail ? clamp(votesCast / votesAvail, 0, 1) : 0;
+  const votes = n ? clamp(voters / n, 0, 1) : 0;
   const actPts = actions.owned + actions.unowned * cfg.UNOWNED_ACTION;
   const acts = cfg.ACTIONS_TARGET > 0 ? clamp(actPts / cfg.ACTIONS_TARGET, 0, 1) : 0;
   const energy = clamp(cfg.W_VOICES * voices + cfg.W_VOTES * votes + cfg.W_ACTIONS * acts, 0, 1);
   const target = clamp(cfg.BASE_DRIFT + (cfg.MAX_SPEED - cfg.BASE_DRIFT) * energy, 0, cfg.MAX_SPEED);
-  return { present: n, voices, votes, votesCast, votesAvail, actions: acts, actPts, energy, target };
+  return { present: n, voices, votes, voters, votesCast, votesAvail, actions: acts, actPts, energy, target };
 }
 const actionCounts = cards => {
   const acts = cards.filter(c => c.scraped);
@@ -894,14 +899,21 @@ const HEALTH_WARN = {
   done: h => h.prevTotal > 0 && h.prevDone / h.prevTotal < .5,
   returned: h => (h.returned || []).length > 0,
 };
-/* The live inputs for computeEnergy (reads the room, so not pure) */
+/* People who cast at least one vote on any card */
+const votersOf = cards => { const v = new Set(); for (const c of cards) for (const k in (c.votes || {})) if (c.votes[k] > 0) v.add(k); return v.size; };
+/* The live inputs for computeEnergy (reads the room, so not pure).
+   Speed only goes up within a retro: keep the highest energy reached. */
 function energyOf(s = S){
-  return computeEnergy({
+  const m = computeEnergy({
     counts: s.contributors || {},
     present: participationOf(s).present,
     votesCast: s.cards.reduce((a, c) => a + totalVotes(c), 0),
+    voters: votersOf(s.cards),
     actions: actionCounts(s.cards)
   });
+  const peak = Math.max(s.peakEnergy || 0, m.energy);
+  s.peakEnergy = peak;
+  return { ...m, live: m.energy, energy: peak, target: clamp(C.BASE_DRIFT + (C.MAX_SPEED - C.BASE_DRIFT) * peak, 0, C.MAX_SPEED) };
 }
 
 /* ================================================================
@@ -1010,7 +1022,7 @@ function apply(a, local){
       if (!local && simTimer) ensureSims(C.SIM_PEOPLE);
       break;
     case "cards.replace":
-      S.cards = a.cards; rebuildCards();
+      S.cards = a.cards; S.peakEnergy = 0; rebuildCards();
       S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = (S.contributors[c.author] || 0) + 1; });
       renderCenter();
       break;
@@ -1185,9 +1197,20 @@ const rockEls = new Map(); // cardId -> { g, inner, path, x, y, phase, hidden, c
 const ICE_TIP_D = "M-36,14 L-24,-8 L-12,-28 L0,-18 L12,-40 L24,-12 L38,14 Z";
 const ICE_SHADE_D = "M0,-18 L12,-40 L24,-12 L38,14 L8,14 Z";
 const ICE_BODY_D = "M-46,14 L-32,42 L-6,60 L28,54 L50,28 L38,14 Z";
-/* Size: votes make an iceberg grow (the team says it matters), a returning one starts bigger */
+/* Size: votes make an iceberg grow (the team says it matters). A returning one starts bigger:
+   2nd retro in a row ×1.5 and grey-blue, 3rd in a row or more ×2 and black. Looks only:
+   a black iceberg makes the sea no rougher than any returning one (RETURN_CAP). */
 const ICE_HALF = 46;
-const iceScale = c => Math.min(3.2, 1.25 * (c.returned ? 1.5 : 1) * (1 + Math.min(10, totalVotes(c)) * .12));
+const backStreak = c => c.returned ? Math.max(2, c.returned.streak || 2) : 1;
+const iceStage = c => { const n = backStreak(c); return n >= 3 ? "black" : n === 2 ? "back" : "new"; };
+const ICE_STAGE_SIZE = { new: 1, back: 1.5, black: 2 };
+const ICE_LOOK = {
+  //        tip fill   tip stroke  shade      body       body opacity
+  new:   ["#f2f9fc", "#9cc6d8", "#c9e3ee", "#a9d4e6", .4],
+  back:  ["#b9c8d3", "#5f7f93", "#8fa5b5", "#5d7a8e", .55],
+  black: ["#1c2127", "#d7e6ef", "#2e353d", "#0f1317", .75],
+};
+const iceScale = c => Math.min(3.6, 1.25 * ICE_STAGE_SIZE[iceStage(c)] * (1 + Math.min(10, totalVotes(c)) * .12));
 function renderRocks(newId){
   if (!S) return null;
   const g = $("seaRocks");
@@ -1227,12 +1250,14 @@ function renderRocks(newId){
     r.x = p.x; r.y = p.y; r.card = c; r.scT = p.sc;
     if (r.sc == null || reduced) r.sc = r.scT;
     r.sg.setAttribute("transform", `scale(${r.sc.toFixed(3)}) translate(0,-14)`);
-    // a returning iceberg is bigger and a deeper, older blue
-    r.path.setAttribute("fill", c.returned ? "#cfe3ee" : p.back ? "#e3f1f7" : "#f2f9fc");
-    r.path.setAttribute("stroke", c.returned ? "#5f8fa8" : "#9cc6d8");
-    r.shade.setAttribute("fill", c.returned ? "#9fc3d6" : "#c9e3ee");
-    r.body.setAttribute("fill", c.returned ? "#6fa6c0" : "#a9d4e6");
-    r.body.setAttribute("fill-opacity", c.returned ? .55 : .4);
+    // a returning iceberg is bigger and grey-blue; from the 3rd retro in a row it is black with a light outline
+    const stage = iceStage(c), [tip, edge, shade, bodyFill, bodyOp] = ICE_LOOK[stage];
+    r.path.setAttribute("fill", stage === "new" && p.back ? "#e3f1f7" : tip);
+    r.path.setAttribute("stroke", edge);
+    r.path.setAttribute("stroke-width", stage === "black" ? 2.5 : 2);
+    r.shade.setAttribute("fill", shade);
+    r.body.setAttribute("fill", bodyFill);
+    r.body.setAttribute("fill-opacity", bodyOp);
     r.body.setAttribute("stroke", "none");
     r.g.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y})`);
     r.g.setAttribute("opacity", r.hidden ? 0 : c.scraped ? .7 : 1);
@@ -1937,9 +1962,9 @@ const TOURS = {
       h("p", { text: PHASES.map(p => p.name).join(" → ") }),
       h("p", { text:"Only you move everyone on, with Next. The timer is a guide: nothing moves on by itself." })]],
     ["Speed, sea and returning icebergs", () => [h("ul", { class:"tour-list" },
-      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards, votes and owned action items."),
+      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards in Sail, everyone who votes in Navigate, and owned action items."),
       h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Icebergs make it rough. They never slow the ship."),
-      h("li", {}, "A ", h("b", { text:"bigger iceberg" }), " rising from the water is a problem that came back."))]],
+      h("li", {}, "A ", h("b", { text:"bigger, grey iceberg" }), " rising from the water is a problem that came back. Back 3 retros in a row, it turns ", h("b", { text:"black" }), "."))]],
     ["Try it first", () => [
       h("p", { text:"Simulated people add cards in Sail and vote in Navigate, so you can see the ship react before your team joins." }),
       h("button", { class:"btn primary", type:"button", id:"tourSim", text:"Simulate team", onclick: () => { closeTour(); if (!simTimer) toggleSim(); } })]],
@@ -2117,9 +2142,9 @@ function renderReadout(){
   const m = model, f = x => x.toFixed(2);
   $("readout").innerHTML =
     `present = <b>${m.present}</b><br>` +
-    `voices = <b>${f(m.voices)}</b> · votes = ${m.votesCast}/${m.votesAvail} = <b>${f(m.votes)}</b><br>` +
+    `Sail: voices = <b>${f(m.voices)}</b> · Navigate: voters = ${m.voters}/${m.present} = <b>${f(m.votes)}</b><br>` +
     `actions = ${m.actPts.toFixed(1)}/${C.ACTIONS_TARGET} = <b>${f(m.actions)}</b><br>` +
-    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·votes + ${C.W_ACTIONS}·actions = <b>${f(m.energy)}</b><br>` +
+    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·voters + ${C.W_ACTIONS}·actions = <b>${f(m.live)}</b> (highest so far <b>${f(m.energy)}</b>)<br>` +
     `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b><br>` +
     `sea: wind <b>${f(m.sea.wind)}</b> · trouble <b>${f(m.sea.trouble)}</b><br>` +
     `roughness = <b>${f(m.sea.roughness)}</b> → <b>${m.sea.word}</b>`;
