@@ -521,7 +521,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <div class="panel-head"><h2 id="helpTitle">How the ship works</h2>
     <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
   <ul class="help-list">
-    <li><b>Speed</b> = how much of the crew is taking part: cards in Sail (half), people who vote in Navigate (30%) and owned action items (20%). It only goes up.</li>
+    <li><b>Speed</b> = how much of the crew is taking part: cards in Sail (60%) and people who vote in Navigate (40%). It only goes up. Action items don't change speed.</li>
     <li><b>Sea</b> = how the sprint felt. Icebergs make it rough, wind calms it.</li>
     <li><b>Icebergs melt</b> when someone owns an action for them. The more votes, the bigger the iceberg.</li>
     <li>Many open icebergs <b>push the ship back</b>. Owning actions clears the way. Speed only counts participation.</li>
@@ -641,9 +641,9 @@ async function sha(s){
    The facilitator's values are shared with the whole room.
    ================================================================ */
 const DEFAULTS = {
-  CONFIG_V: 3,
+  CONFIG_V: 4,
   BASE_DRIFT: 1, MAX_SPEED: 14,
-  W_VOICES: 0.5, W_VOTES: 0.3, W_ACTIONS: 0.2,
+  W_VOICES: 0.6, W_VOTES: 0.4, W_ACTIONS: 0,
   VOICE_1: 0.6, VOICE_2: 0.25, VOICE_3: 0.15,
   ACTIONS_TARGET: 3, UNOWNED_ACTION: 0.5,
   VOTE_FACTOR: 0.25, ROCK_TROUBLE: 1.5, BARNACLE_TROUBLE: 0.5, UNOWNED_TROUBLE: 0.5, RETURN_STEP: 0.5, RETURN_CAP: 1.5,
@@ -657,14 +657,11 @@ const PARAMS = [
   ["Speed = crew energy"],
   ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed when nobody takes part. Problems never go below it."],
   ["MAX_SPEED","Max speed (kn)",4,30,1,"Speed at full energy, and the speedometer top"],
-  ["W_VOICES","Sail share (cards)",0,1,.05,"energy = Sail × this + Navigate × … + Set course × …"],
+  ["W_VOICES","Sail share (cards)",0,1,.05,"energy = Sail × this + Navigate × …"],
   ["W_VOTES","Navigate share (people who voted)",0,1,.05,""],
-  ["W_ACTIONS","Set course share (owned actions)",0,1,.05,""],
   ["VOICE_1","1st card per person",0,1,.05,"Each person's voice: 1st card + 2nd + 3rd. More add nothing."],
   ["VOICE_2","2nd card adds",0,1,.05,""],
   ["VOICE_3","3rd card adds",0,1,.05,""],
-  ["ACTIONS_TARGET","Action items target",1,10,1,"Owned action items for full actions score"],
-  ["UNOWNED_ACTION","Action without owner counts",0,1,.05,"Share of an owned one"],
   ["Sea state = mood (never changes speed)"],
   ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
   ["ROCK_TROUBLE","Iceberg trouble",0,5,.1,"trouble = icebergs × this + torn sails × …; roughness = trouble ÷ (wind + trouble)"],
@@ -707,6 +704,8 @@ function loadConfig(cfg){
   if (!c.CONFIG_V) OLD_SPEED_KEYS.forEach(k => delete c[k]);
   // v3: Sail 50 / Navigate 30 / Set course 20, and a black iceberg no longer roughens the sea
   if ((c.CONFIG_V || 0) < 3) ["W_VOICES","W_VOTES","W_ACTIONS","RETURN_CAP"].forEach(k => delete c[k]);
+  // v4: Sail 60 / Navigate 40. Action items no longer add speed: speed is participation only
+  if ((c.CONFIG_V || 0) < 4) ["W_VOICES","W_VOTES","W_ACTIONS"].forEach(k => delete c[k]);
   for (const k of OLD_SPEED_KEYS) if (!(k in DEFAULTS)) delete c[k];
   return {...DEFAULTS, ...c, CONFIG_V: DEFAULTS.CONFIG_V};
 }
@@ -744,7 +743,7 @@ const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|s
      actions = (owned + unowned × UNOWNED_ACTION) ÷ ACTIONS_TARGET, capped at 1
      energy  = W_VOICES·voices + W_VOTES·votes + W_ACTIONS·actions
      speed   = BASE_DRIFT + (MAX_SPEED − BASE_DRIFT) × energy
-   Defaults: Sail (voices) 50%, Navigate (voters) 30%, Set course (actions) 20%.
+   Defaults: Sail (voices) 60%, Navigate (voters) 40%. Action items add no speed (W_ACTIONS 0).
    Within a retro the speed only goes up: energyOf keeps the highest energy reached,
    so someone joining late never slows the ship.
    ================================================================ */
@@ -2139,7 +2138,7 @@ const TOURS = {
       h("p", { text: PHASES.map(p => p.name).join(" → ") }),
       h("p", { text:"Only you move everyone on, with Next. The timer is a guide: nothing moves on by itself." })]],
     ["Speed, sea and returning icebergs", () => [h("ul", { class:"tour-list" },
-      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards in Sail, everyone who votes in Navigate, and owned action items."),
+      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards in Sail and everyone who votes in Navigate."),
       h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Icebergs make it rough. They never slow the ship."),
       h("li", {}, "A ", h("b", { text:"bigger, grey iceberg" }), " rising from the water is a problem that came back. Back 3 retros in a row, it turns ", h("b", { text:"black" }), "."))]],
     ["Try it first", () => [
@@ -2320,14 +2319,13 @@ function renderReadout(){
   $("readout").innerHTML =
     `present = <b>${m.present}</b><br>` +
     `Sail: voices = <b>${f(m.voices)}</b> · Navigate: voters = ${m.voters}/${m.present} = <b>${f(m.votes)}</b><br>` +
-    `actions = ${m.actPts.toFixed(1)}/${C.ACTIONS_TARGET} = <b>${f(m.actions)}</b><br>` +
-    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·voters + ${C.W_ACTIONS}·actions = <b>${f(m.live)}</b> (highest so far <b>${f(m.energy)}</b>)<br>` +
+    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·voters = <b>${f(m.live)}</b> (highest so far <b>${f(m.energy)}</b>)<br>` +
     `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b><br>` +
     `sea: wind <b>${f(m.sea.wind)}</b> · trouble <b>${f(m.sea.trouble)}</b><br>` +
     `roughness = <b>${f(m.sea.roughness)}</b> → <b>${m.sea.word}</b>`;
 }
 function configAsTs(){
-  const groups = { speed:["BASE_DRIFT","MAX_SPEED","W_VOICES","W_VOTES","W_ACTIONS","VOICE_1","VOICE_2","VOICE_3","ACTIONS_TARGET","UNOWNED_ACTION","TAU","MAX_ACCEL"],
+  const groups = { speed:["BASE_DRIFT","MAX_SPEED","W_VOICES","W_VOTES","VOICE_1","VOICE_2","VOICE_3","TAU","MAX_ACCEL"],
     sea:["VOTE_FACTOR","ROCK_TROUBLE","BARNACLE_TROUBLE","UNOWNED_TROUBLE","RETURN_STEP","RETURN_CAP"],
     retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
     scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","MAX_ROCK_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
