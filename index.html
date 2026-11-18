@@ -194,6 +194,8 @@ body.is-fac .card[draggable="true"]{cursor:grab}
 body.is-fac .card[draggable="true"]:active{cursor:grabbing}
 .card .grip{float:right;color:var(--ui-muted);font-size:14px;line-height:1;margin-left:6px;user-select:none}
 ul.merged{list-style:none;margin:-2px 0 6px;padding:0 0 0 10px;border-left:2px solid color-mix(in srgb,var(--c) 45%,transparent);display:grid;gap:3px;font-size:13px;color:var(--ui-muted)}
+.rename-row{display:flex;gap:6px;margin:0 0 6px}
+.rename-row input{flex:1;min-width:0;padding:6px 9px;border-radius:8px;border:1px solid var(--focus);background:rgba(0,0,0,.25);color:var(--ui-text)}
 ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-between}
 .back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
@@ -863,7 +865,7 @@ function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !
    into.merged with its own text, author and votes, so "Take out" restores it.
    Votes add up (nobody gains or loses a vote). A group is "returned" if any card in it is.
    ================================================================ */
-const cardTexts = c => [c.text, ...(c.merged || []).map(k => k.text)];
+const cardTexts = c => [c.text, ...(c.origText ? [c.origText] : []), ...(c.merged || []).map(k => k.text)];
 const bestReturned = list => list.filter(Boolean).reduce((a, r) => !a || r.streak > a.streak ? r : a, null);
 function addVotes(a = {}, b = {}, sign = 1){
   const o = { ...a };
@@ -890,7 +892,7 @@ function ungroupCard(cards, intoId, childId){
   const merged = into.merged.filter(k => k.id !== childId);
   const next = { ...into, votes: addVotes(into.votes, kid.votes, -1) };
   if (merged.length){ next.merged = merged; next.returned = into.notSame ? null : bestReturned([into.returnedOwn, ...merged.map(k => k.returned)]); }
-  else { delete next.merged; next.returned = into.notSame ? null : (into.returnedOwn || null); delete next.returnedOwn; }
+  else { delete next.merged; if (next.origText){ next.text = next.origText; delete next.origText; } next.returned = into.notSame ? null : (into.returnedOwn || null); delete next.returnedOwn; }
   return cards.flatMap(c => c.id === intoId ? [next, kid] : [c]);
 }
 function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
@@ -1043,6 +1045,15 @@ function apply(a, local){
       S.cards = next;
       recompute(); renderBarnacles(); renderRocks(); renderStage();
       plainToast("Cards merged");
+      break;
+    }
+    case "rename": {
+      const c = byId(a.cardId), t = (a.text || "").trim().slice(0, 140);
+      if (!c || !c.merged || !t || t === c.text) return;
+      if (!c.origText) c.origText = c.text;
+      c.text = t; if (t === c.origText) delete c.origText;
+      if (renameId === c.id) renameId = null;
+      renderRocks(); renderStage();
       break;
     }
     case "ungroup": {
@@ -1916,7 +1927,23 @@ function tile(c, mode){
   const isAct = mode === "owner" || mode === "action";
   const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: isAct && c.action ? c.action : c.text }));
   if (isAct && c.action) li.append(h("p", { class:"for-line", text:`For: ${c.text}` }));
+  if (c.merged && S.phase >= 2 && isFac() && mode === "vote"){
+    if (renameId === c.id){
+      const inp = h("input", { type:"text", maxlength:"140", "data-fk":"rn" + c.id, "aria-label":`New title for: ${c.text}`, value: c.text });
+      const save = () => dispatch({ type:"rename", cardId: c.id, text: inp.value });
+      const cancel = () => { renameId = null; renderStage(); };
+      inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); save(); } else if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); cancel(); } });
+      li.querySelector("p").replaceWith(h("div", { class:"rename-row" }, inp,
+        h("button", { class:"btn small primary", type:"button", text:"Save", onclick: save }),
+        h("button", { class:"btn small ghost", type:"button", text:"Cancel", onclick: cancel })));
+      setTimeout(() => { if (inp.isConnected && document.activeElement !== inp){ inp.focus(); inp.select(); } }, 0);
+    } else {
+      li.querySelector("p").append(" ", h("button", { class:"btn small ghost", type:"button", "data-fk":"r" + c.id, "aria-label":`Rename merged card: ${c.text}`, text:"Rename",
+        onclick: () => { renameId = c.id; renderStage(); } }));
+    }
+  }
   if (c.merged && S.phase >= 2){
+    if (c.origText) li.append(h("p", { class:"for-line", text:`Was: ${c.origText}` }));
     li.append(h("ul", { class:"merged", "aria-label":`Merged into “${c.text}”` }, c.merged.map(k => h("li", {},
       h("span", { text: k.text }),
       isFac() && mode === "vote" ? h("button", { class:"btn small ghost", type:"button", "data-fk":"u" + k.id, "aria-label":`Take out: ${k.text}`, text:"Take out",
@@ -1952,7 +1979,7 @@ function tile(c, mode){
 }
 
 /* Navigate: the facilitator drags a card onto a duplicate in the same column to merge them */
-let dragId = null;
+let dragId = null, renameId = null; // this tab only: card being dragged, merged card being renamed
 function dragMerge(li, c){
   li.draggable = true;
   li.title = "Drag onto a matching card to merge them";
