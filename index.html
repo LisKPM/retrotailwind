@@ -223,8 +223,6 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 .budget{font-size:12.5px;color:var(--ui-muted);padding:6px 4px}
 
 /* tune panel */
-.readout{font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px;margin:8px 0}
-.readout b{color:var(--ui-text)}
 .param{display:grid;grid-template-columns:1fr 64px;gap:2px 8px;align-items:center;padding:7px 2px}
 .param label{font-size:13.5px}
 .param input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--wind)}
@@ -518,10 +516,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <button class="btn small" id="exampleBtn">Load example cards</button>
       <button class="btn small" id="clearBtn">Clear cards</button>
     </div>
-    <div class="readout" id="readout"></div>
     <div id="params"></div>
     <div class="tune-actions">
-      <button class="btn small" id="copyCfg">Copy as config.ts</button>
       <button class="btn small" id="resetCfg">Reset to defaults</button>
     </div>
   </div>
@@ -688,48 +684,22 @@ const DEFAULTS = {
   SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15, SIM_QUIET_RATE: 0.15,
   SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
 };
+/* Tune shows only retro rules and demo tools (Lis, 2026-11-18). The speed and sea
+   formulas are locked in DEFAULTS so knots mean the same in every team and sprint. */
 const PARAMS = [
-  ["Speed = crew energy"],
-  ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed when nobody takes part. Problems never go below it."],
-  ["MAX_SPEED","Max speed (kn)",4,30,1,"Speed at full energy, and the speedometer top"],
-  ["W_VOICES","Sail share (cards)",0,1,.05,"energy = Sail × this + Navigate × …"],
-  ["W_VOTES","Navigate share (people who voted)",0,1,.05,""],
-  ["VOICE_1","1st card per person",0,1,.05,"Each person's voice: 1st card + 2nd + 3rd. More add nothing."],
-  ["VOICE_2","2nd card adds",0,1,.05,""],
-  ["VOICE_3","3rd card adds",0,1,.05,""],
-  ["Sea state = mood (never changes speed)"],
-  ["VOTE_FACTOR","Vote factor",0,1,.05,"Card weight = 1 + votes × this"],
-  ["ROCK_TROUBLE","Iceberg trouble",0,5,.1,"trouble = icebergs × this + torn sails × …; roughness = trouble ÷ (wind + trouble)"],
-  ["BARNACLE_TROUBLE","Torn sail trouble",0,5,.1,""],
-  ["UNOWNED_TROUBLE","Action without owner keeps",0,1,.05,"Share of trouble left. With an owner it is 0."],
-  ["RETURN_STEP","Returning iceberg step",0,2,.05,"Weight × (1 + this × (streak − 1))"],
-  ["RETURN_CAP","Returning iceberg cap",1,5,.1,"Max multiplier. 1.5 = a black iceberg (3rd time) roughens the sea no more than a 2nd-time one"],
-  ["Inertia"],
-  ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
-  ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
   ["Retro rules"],
   ["VOTES_PER_PERSON","Votes per person",1,20,1,""],
   ["MAX_VOTES_PER_CARD","Max votes per card (per person)",1,10,1,""],
   ["SILENT_TIMER_MIN","Silent writing (min)",.5,15,.5,"Names hidden until it ends"],
   ["SHOW_SPEEDOMETER","Show speedometer","bool",0,0,"Hide so speed isn't a team score"],
-  ["Step timers (a guide, not a hard stop)"],
-  ["SAIL_MIN","Sail (min)",1,60,1,""],
-  ["NAV_MIN","Navigate (min)",1,60,1,""],
-  ["COURSE_MIN","Set course (min)",1,60,1,""],
-  ["HARBOR_MIN","Harbor (min)",1,60,1,""],
-  ["Scene & performance"],
-  ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
-  ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
-  ["MAX_BARNACLE_SPRITES","Rips drawn on the sails",1,12,1,"The rest show as +N"],
-  ["MAX_ROCK_SPRITES","Icebergs drawn in the water",1,16,1,"The rest show as +N"],
-  ["TOAST_MERGE_MS","Merge toasts within (ms)",0,6000,250,"\"Ana and 3 others added wind\""],
-  ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
-  ["Simulation (fake data)"],
+  ["Demo (fake data)"],
   ["SIM_PEOPLE","Simulated people",1,40,1,""],
   ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Cards in Sail, votes in Navigate, owners in Set course"],
   ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
   ["SIM_QUIET_RATE","Quiet people",0,1,.05,"Share who add no cards and few votes"],
 ];
+/* Settings a team may change: the Tune rows plus the step minutes set at the Dock */
+const TUNABLE = new Set([...PARAMS.filter(r => r.length > 1).map(r => r[0]), "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"]);
 let C = {...DEFAULTS};
 /* Teams saved before crew energy stored the old speed model's values (BASE_DRIFT 2 etc).
    Drop those so the new defaults apply; keep everything else they tuned. */
@@ -742,6 +712,7 @@ function loadConfig(cfg){
   // v4: Sail 60 / Navigate 40. Action items no longer add speed: speed is participation only
   if ((c.CONFIG_V || 0) < 4) ["W_VOICES","W_VOTES","W_ACTIONS"].forEach(k => delete c[k]);
   for (const k of OLD_SPEED_KEYS) if (!(k in DEFAULTS)) delete c[k];
+  for (const k of Object.keys(c)) if (!TUNABLE.has(k)) delete c[k]; // locked: always the defaults
   return {...DEFAULTS, ...c, CONFIG_V: DEFAULTS.CONFIG_V};
 }
 
@@ -1580,7 +1551,7 @@ function canVote(c, pid, delta){
   if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
   return cur > 0;
 }
-function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderReadout(); renderSeaWord(); if (!$("helpPanel").hidden) renderSeaHelp(); }
+function recompute(){ model = { ...energyOf(), sea: computeSea(S.cards), starRockBack: rockReturnedOf() === true }; renderSeaWord(); if (!$("helpPanel").hidden) renderSeaHelp(); }
 let seaShown = "";
 function renderSeaWord(){
   if (model.sea.word === seaShown) return;
@@ -2371,24 +2342,6 @@ function renderParams(){
     }
   }
 }
-function renderReadout(){
-  const m = model, f = x => x.toFixed(2);
-  $("readout").innerHTML =
-    `present = <b>${m.present}</b><br>` +
-    `Sail: voices = <b>${f(m.voices)}</b> · Navigate: voters = ${m.voters}/${m.present} = <b>${f(m.votes)}</b><br>` +
-    `energy = ${C.W_VOICES}·voices + ${C.W_VOTES}·voters = <b>${f(m.live)}</b> (highest so far <b>${f(m.energy)}</b>)<br>` +
-    `target = ${C.BASE_DRIFT} + (${C.MAX_SPEED} − ${C.BASE_DRIFT})·energy = <b>${f(m.target)} kn</b><br>` +
-    `sea: wind <b>${f(m.sea.wind)}</b> · trouble <b>${f(m.sea.trouble)}</b><br>` +
-    `roughness = <b>${f(m.sea.roughness)}</b> → <b>${m.sea.word}</b>`;
-}
-function configAsTs(){
-  const groups = { speed:["BASE_DRIFT","MAX_SPEED","W_VOICES","W_VOTES","VOICE_1","VOICE_2","VOICE_3","TAU","MAX_ACCEL"],
-    sea:["VOTE_FACTOR","ROCK_TROUBLE","BARNACLE_TROUBLE","UNOWNED_TROUBLE","RETURN_STEP","RETURN_CAP"],
-    retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
-    scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","MAX_ROCK_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
-  return "// config/retro.ts\n" + Object.entries(groups).map(([g, keys]) =>
-    `export const ${g.toUpperCase()} = {\n` + keys.map(k => `  ${k}: ${JSON.stringify(C[k])},`).join("\n") + "\n} as const;").join("\n\n") + "\n";
-}
 function applySpeedoVisibility(){
   $("speedo").classList.toggle("hidden", !C.SHOW_SPEEDOMETER);
   $("speedHidden").hidden = !!C.SHOW_SPEEDOMETER;
@@ -2658,7 +2611,6 @@ $("silentBtn").onclick = () => dispatch({ type:"silent", until: silentActive() ?
 $("exampleBtn").onclick = loadExample;
 $("clearBtn").onclick = () => dispatch({ type:"cards.replace", cards: [] });
 $("resetCfg").onclick = () => { C = loadConfig(DEFAULTS); renderParams(); recompute(); renderStage(); applySpeedoVisibility(); pushConfig(); };
-$("copyCfg").onclick = () => copy(configAsTs(), $("copyCfg"));
 addEventListener("resize", () => team && renderAvatars());
 
 init();
