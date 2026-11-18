@@ -188,6 +188,13 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 .prev-item .grow{flex:1;min-width:160px}
 .prev-item .votebar{margin:0}
 #stage h2.sub-h{font-size:15px;margin:8px 0 2px;color:var(--star)}
+.card.drag-src{opacity:.45}
+.card.drop-ok{outline:2px dashed var(--focus);outline-offset:2px;background:rgba(255,213,107,.08)}
+body.is-fac .card[draggable="true"]{cursor:grab}
+body.is-fac .card[draggable="true"]:active{cursor:grabbing}
+.card .grip{float:right;color:var(--ui-muted);font-size:14px;line-height:1;margin-left:6px;user-select:none}
+ul.merged{list-style:none;margin:-2px 0 6px;padding:0 0 0 10px;border-left:2px solid color-mix(in srgb,var(--c) 45%,transparent);display:grid;gap:3px;font-size:13px;color:var(--ui-muted)}
+ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-between}
 .back-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:12.5px}
 .card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
 
@@ -791,6 +798,7 @@ function stepSpeed(v, target, dt){
    nextStar  = { rockId, rock, text } picked at this Harbor for the next retro
    prevActions = [{ id, text, owner, done: null|true|false }] last retro's action items
    card.owner  = crew name owning the action item (card.scraped = it is an action item)
+   card.merged = cards the facilitator dragged onto this one in Navigate (see CARD MERGING)
    ================================================================ */
 const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
 let reduced = reducedMQ.matches;
@@ -847,7 +855,44 @@ function findReturning(text, { starRock = null, sessions = [], prevActions = [] 
 const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th","st","nd","rd"][n % 10] || "th");
 const returnedLabel = r => r.streak >= 2 ? `Back again · ${ordinal(r.streak)} retro in a row` : "Back again";
 const tally = (v = {}) => { const a = Object.values(v); return { yes: a.filter(x => x === "yes").length, no: a.filter(x => x === "no").length }; };
-function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !c.notSame && similar(c.text, s.starRock)) : []; }
+function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => !c.notSame && cardTexts(c).some(t => similar(t, s.starRock))) : []; }
+
+/* ================================================================
+   CARD MERGING (pure — becomes lib/group.ts). Facilitator only, in Navigate:
+   drag a card onto a duplicate in the same column. The dragged card lives on in
+   into.merged with its own text, author and votes, so "Take out" restores it.
+   Votes add up (nobody gains or loses a vote). A group is "returned" if any card in it is.
+   ================================================================ */
+const cardTexts = c => [c.text, ...(c.merged || []).map(k => k.text)];
+const bestReturned = list => list.filter(Boolean).reduce((a, r) => !a || r.streak > a.streak ? r : a, null);
+function addVotes(a = {}, b = {}, sign = 1){
+  const o = { ...a };
+  for (const [k, n] of Object.entries(b)){ const v = (o[k] || 0) + sign * n; if (v > 0) o[k] = v; else delete o[k]; }
+  return o;
+}
+const canGroup = (card, into) => !!card && !!into && card.id !== into.id && card.type === into.type && !card.scraped && !into.scraped;
+function groupCards(cards, cardId, intoId){
+  const card = cards.find(c => c.id === cardId), into = cards.find(c => c.id === intoId);
+  if (!canGroup(card, into)) return cards;
+  const kids = card.merged || [];
+  const own = { ...card, votes: kids.reduce((v, k) => addVotes(v, k.votes, -1), card.votes), returned: "returnedOwn" in card ? card.returnedOwn : (card.returned || null) };
+  delete own.merged; delete own.returnedOwn;
+  const returnedOwn = "returnedOwn" in into ? into.returnedOwn : (into.returned || null);
+  const merged = [...(into.merged || []), own, ...kids];
+  const next = { ...into, merged, votes: addVotes(into.votes, card.votes), returnedOwn,
+    returned: into.notSame ? null : bestReturned([returnedOwn, ...merged.map(k => k.returned)]) };
+  return cards.filter(c => c.id !== cardId).map(c => c.id === intoId ? next : c);
+}
+function ungroupCard(cards, intoId, childId){
+  const into = cards.find(c => c.id === intoId);
+  const kid = into && (into.merged || []).find(k => k.id === childId);
+  if (!kid) return cards;
+  const merged = into.merged.filter(k => k.id !== childId);
+  const next = { ...into, votes: addVotes(into.votes, kid.votes, -1) };
+  if (merged.length){ next.merged = merged; next.returned = into.notSame ? null : bestReturned([into.returnedOwn, ...merged.map(k => k.returned)]); }
+  else { delete next.merged; next.returned = into.notSame ? null : (into.returnedOwn || null); delete next.returnedOwn; }
+  return cards.flatMap(c => c.id === intoId ? [next, kid] : [c]);
+}
 function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
 function starOutcome(s = S){
   if (!s.star) return "none";
@@ -878,7 +923,7 @@ function retroHealth(s, cfg = C, roomNow = 0){
     votesCast, votesAvail: present * cfg.VOTES_PER_PERSON,
     actionsCreated: acts.length, actionsOwned: acts.filter(c => c.owner).length,
     prevDone: done.length, prevTotal: prev.length,
-    held: done.filter(a => !probs.some(c => similar(c.text, a.problem || a.text))).length,
+    held: done.filter(a => !probs.some(c => cardTexts(c).some(t => similar(t, a.problem || a.text)))).length,
     returned: s.cards.filter(c => c.returned).map(c => ({ text: c.text, streak: c.returned.streak })),
     sea: computeSea(s.cards, cfg).word
   };
@@ -991,6 +1036,20 @@ function apply(a, local){
       c.scraped = false; delete c.action; c.owner = null;
       recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
       plainToast("Action removed");
+      break;
+    }
+    case "group": {
+      const next = groupCards(S.cards, a.cardId, a.intoId); if (next === S.cards) return;
+      S.cards = next;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      plainToast("Cards merged");
+      break;
+    }
+    case "ungroup": {
+      const next = ungroupCard(S.cards, a.cardId, a.childId); if (next === S.cards) return;
+      S.cards = next;
+      recompute(); renderBarnacles(); renderRocks(); renderStage();
+      plainToast("Card taken out");
       break;
     }
     case "notSame": {
@@ -1537,7 +1596,7 @@ function currentSummary(){
     rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star && rockReturnedOf() !== true ? "pending" : starOutcome(),
     finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
     counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
-    rocks: problems(S.cards).map(c => c.text),
+    rocks: problems(S.cards).flatMap(cardTexts),
     participation: S.phase === 0 ? null : participationOf(),
     actions: S.cards.filter(c => c.scraped).map(c => c.action || c.text),
     actionItems: S.cards.filter(c => c.scraped).map(c => ({ text: c.action || c.text, problem: c.text, owner: c.owner || null })),
@@ -1857,6 +1916,13 @@ function tile(c, mode){
   const isAct = mode === "owner" || mode === "action";
   const li = h("li", { class:"card" + (c.returned && S.phase >= 2 ? " back" : ""), style:`--c:var(--${c.type})` }, h("p", { text: isAct && c.action ? c.action : c.text }));
   if (isAct && c.action) li.append(h("p", { class:"for-line", text:`For: ${c.text}` }));
+  if (c.merged && S.phase >= 2){
+    li.append(h("ul", { class:"merged", "aria-label":`Merged into “${c.text}”` }, c.merged.map(k => h("li", {},
+      h("span", { text: k.text }),
+      isFac() && mode === "vote" ? h("button", { class:"btn small ghost", type:"button", "data-fk":"u" + k.id, "aria-label":`Take out: ${k.text}`, text:"Take out",
+        onclick: () => dispatch({ type:"ungroup", cardId: c.id, childId: k.id }) }) : null))));
+  }
+  if (mode === "vote" && isFac() && !c.scraped) dragMerge(li, c);
   if (c.returned && S.phase >= 2){
     li.append(h("div", { class:"back-row" },
       h("span", { class:"badge bad inline", text: returnedLabel(c.returned) }),
@@ -1883,6 +1949,27 @@ function tile(c, mode){
   }
   li.append(meta);
   return li;
+}
+
+/* Navigate: the facilitator drags a card onto a duplicate in the same column to merge them */
+let dragId = null;
+function dragMerge(li, c){
+  li.draggable = true;
+  li.title = "Drag onto a matching card to merge them";
+  li.prepend(h("span", { class:"grip", "aria-hidden":"true", text:"⠿" }));
+  li.addEventListener("dragstart", e => {
+    dragId = c.id; li.classList.add("drag-src");
+    try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); } catch {}
+  });
+  li.addEventListener("dragend", () => { dragId = null; li.classList.remove("drag-src"); document.querySelectorAll(".card.drop-ok").forEach(x => x.classList.remove("drop-ok")); });
+  const ok = () => dragId && canGroup(byId(dragId), byId(c.id));
+  li.addEventListener("dragover", e => { if (!ok()) return; e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch {} li.classList.add("drop-ok"); });
+  li.addEventListener("dragleave", e => { if (!li.contains(e.relatedTarget)) li.classList.remove("drop-ok"); });
+  li.addEventListener("drop", e => {
+    e.preventDefault(); li.classList.remove("drop-ok");
+    const from = dragId; dragId = null;
+    if (from && canGroup(byId(from), byId(c.id))) dispatch({ type:"group", cardId: from, intoId: c.id });
+  });
 }
 
 /* Action items are decided, not generated: the facilitator writes what the team will do and who owns it */
@@ -2034,7 +2121,7 @@ function stepHint(p){
   const text = p === 0 && !S.star ? "Name the ship, then check in as the crew comes aboard."
     : p === 4 && !S.star ? "Tie the next star to an iceberg, then save the voyage."
     : PHASES[p].hint;
-  return h("p", { class:"step-hint", text });
+  return h("p", { class:"step-hint", text: p === 2 && isFac() ? text + " Drag a card onto a duplicate to merge them." : text });
 }
 
 /* ================================================================
