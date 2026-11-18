@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RetroTailWind</title>
-<!-- old ship lettering for the name on the hull -->
+<!-- Lato for the app text (Lis, 2026-11-18); old ship lettering for the name on the hull -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
   --ui-bg: rgba(14,27,48,.86);
@@ -24,7 +24,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;background:#0f2f4d;color:var(--ui-text);
-  font:15px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  font:15px/1.4 Lato,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--wind)}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
@@ -242,10 +242,10 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 .param .lbl{display:flex;align-items:center;gap:6px}
 /* ⓘ hover tips in Tune (Lis, 2026-11-18) */
 .tip{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--ui-muted);
-  color:var(--ui-muted);font:600 10.5px/1 system-ui,sans-serif;font-style:italic;cursor:help;flex:none}
+  color:var(--ui-muted);font:700 10.5px/1 Lato,system-ui,sans-serif;font-style:italic;cursor:help;flex:none}
 .tip:hover,.tip:focus-visible{color:var(--ui-text);border-color:var(--ui-text)}
 .tip::after,[data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;width:230px;padding:8px 10px;border-radius:9px;
-  background:#0a1426;border:1px solid var(--ui-line);color:var(--ui-text);font:400 12.5px/1.45 system-ui,sans-serif;font-style:normal;
+  background:#0a1426;border:1px solid var(--ui-line);color:var(--ui-text);font:400 12.5px/1.45 Lato,system-ui,sans-serif;font-style:normal;
   white-space:normal;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .12s}
 [data-tip]{position:relative}
 [data-tip]::after{top:calc(100% + 6px);left:0}
