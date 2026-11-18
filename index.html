@@ -430,8 +430,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <stop offset="1" stop-color="#f0c8a0"/>
     </linearGradient>
     <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3a7c9a"/>
-      <stop offset="1" stop-color="#0f2f4d"/>
+      <stop id="seaTop" offset="0" stop-color="#3a7c9a"/>
+      <stop id="seaBottom" offset="1" stop-color="#0f2f4d"/>
     </linearGradient>
     <linearGradient id="sailGrad" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#e9e2d2"/>
@@ -441,9 +441,16 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
       <stop offset="0" stop-color="#fff6cf" stop-opacity=".9"/>
       <stop offset="1" stop-color="#ffe59a" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="stormSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14181f"/>
+      <stop offset="1" stop-color="#4b545e"/>
+    </linearGradient>
   </defs>
   <rect x="-3000" y="-3000" width="7600" height="3010" fill="#1c2f52"/>
   <rect x="-3000" width="7600" height="440" fill="url(#sky)"/>
+  <!-- Weather = how the sprint felt (sea mood). Sun in Calm, storm sky in Rough and Stormy. -->
+  <g id="sun"><circle cx="330" cy="395" r="120" fill="url(#glow)"/><circle cx="330" cy="395" r="44" fill="#ffd98a"/></g>
+  <rect id="stormSkyRect" x="-3000" y="-3000" width="7600" height="3440" fill="url(#stormSky)" opacity="0"/>
   <g id="constellation"></g>
   <g id="clouds"></g>
   <g id="northStarPos"><g id="northStar">
@@ -507,6 +514,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <g id="splashes"></g>
   <path id="wave1" fill="#2f6f8f" opacity=".85"/>
   <path id="wave2" fill="#1d4e72" opacity=".9"/>
+  <g id="rain" stroke="#c9d6e3" stroke-width="2" stroke-linecap="round" opacity="0"></g>
+  <rect id="lightning" x="-3000" y="-3000" width="7600" height="7000" fill="#eef4ff" opacity="0"/>
 </svg>
 
 <header>
@@ -1228,11 +1237,50 @@ for (const w of WAVES){
   w.off = Math.random() * w.len;
 }
 const clouds = [];
-for (let i=0;i<3;i++){
-  const g = el("g", { opacity: .5 + Math.random()*.3 }, $("clouds"));
-  const s = .6 + Math.random()*.8;
-  [[0,0,40],[34,-12,32],[66,2,30],[30,10,34]].forEach(([x,y,r]) => el("circle",{cx:x*s,cy:y*s,r:r*s,fill:"#f6efe6"},g));
-  clouds.push({ g, x: Math.random()*1800, y: 70 + Math.random()*230, k: .3 + s*.4 });
+for (let i=0;i<9;i++){
+  // the first 2 are always out; more gather as the sea gets rough (see WEATHER)
+  const g = el("g", { opacity: 0, fill:"#f6efe6" }, $("clouds"));
+  const s = .6 + Math.random()*.8 + (i >= 3 ? .4 : 0);
+  [[0,0,40],[34,-12,32],[66,2,30],[30,10,34]].forEach(([x,y,r]) => el("circle",{cx:x*s,cy:y*s,r:r*s},g));
+  clouds.push({ g, x: Math.random()*1800, y: 50 + Math.random()*250, k: .3 + s*.4, base: .5 + Math.random()*.3 });
+}
+/* ================================================================
+   WEATHER — how the sprint felt, from the sea mood (Lis, 2026-11-18).
+   Calm: sun, blue water. Breezy: a few clouds. Choppy: grey sky, sun gone.
+   Rough: dark sky, light rain. Stormy: near black, heavy rain, rare lightning.
+   Never changes speed. r is the smoothed roughness 0..1.
+   ================================================================ */
+const lerpHex = (a, b, f) => "#" + [0,2,4].map(i => Math.round(parseInt(a.substr(i+1,2),16) * (1-f) + parseInt(b.substr(i+1,2),16) * f).toString(16).padStart(2,"0")).join("");
+const ramp = (x, a, b) => clamp((x - a) / (b - a), 0, 1);
+const drops = [];
+for (let i = 0; i < 90; i++) drops.push({ e: el("line", {}, $("rain")), x: Math.random()*1900 - 150, y: Math.random()*900, v: 700 + Math.random()*300, l: 14 + Math.random()*14 });
+let nextFlash = 0, flash = 0;
+function tickWeather(r, dt, now){
+  const grey = ramp(r, .2, .8);
+  $("sun").setAttribute("opacity", (1 - ramp(r, .1, .4)).toFixed(3));
+  $("stormSkyRect").setAttribute("opacity", (ramp(r, .15, .85) * .88).toFixed(3));
+  $("seaTop").setAttribute("stop-color", lerpHex("#3a7c9a", "#4a5862", grey));
+  $("seaBottom").setAttribute("stop-color", lerpHex("#0f2f4d", "#161e26", grey));
+  $("wave0").setAttribute("fill", lerpHex("#4a8fac", "#6a7a84", grey));
+  $("wave1").setAttribute("fill", lerpHex("#2f6f8f", "#3a4852", grey));
+  $("wave2").setAttribute("fill", lerpHex("#1d4e72", "#232e37", grey));
+  const shown = 2 + r * 7, cloudC = lerpHex("#f6efe6", "#59626c", ramp(r, .2, .8));
+  clouds.forEach((c, i) => { c.g.setAttribute("opacity", (c.base * clamp(shown - i, 0, 1) * (1 + grey * .3)).toFixed(3)); c.g.setAttribute("fill", cloudC); });
+  // rain from Rough (.55) up, heavy in Stormy
+  const rain = ramp(r, .5, .9);
+  $("rain").setAttribute("opacity", (rain * .55).toFixed(3));
+  if (rain > 0) drops.forEach((d, i) => {
+    const on = i < 25 + rain * 65;
+    if (!reduced) { d.y += d.v * dt; d.x -= d.v * .25 * dt; if (d.y > 900){ d.y -= 960; d.x = Math.random()*1900 - 150; } }
+    d.e.setAttribute("x1", d.x.toFixed(1)); d.e.setAttribute("y1", d.y.toFixed(1));
+    d.e.setAttribute("x2", (d.x + d.l * .25).toFixed(1)); d.e.setAttribute("y2", (d.y - d.l).toFixed(1));
+    d.e.setAttribute("opacity", on ? 1 : 0);
+  });
+  // a rare, soft lightning flash only in a Stormy sea, never with reduced motion
+  flash = Math.max(0, flash - dt * 3);
+  if (!reduced && r > .78){ if (!nextFlash) nextFlash = now + 6000 + Math.random()*9000; else if (now > nextFlash){ flash = 1; nextFlash = 0; } }
+  else nextFlash = 0;
+  $("lightning").setAttribute("opacity", (flash * flash * .35).toFixed(3));
 }
 function starPath(R, r){ let d=""; for(let i=0;i<10;i++){ const a=Math.PI/5*i - Math.PI/2, rad = i%2? r:R; d += (i?"L":"M") + (Math.cos(a)*rad).toFixed(1) + "," + (Math.sin(a)*rad).toFixed(1); } return d + "Z"; }
 
@@ -2442,6 +2490,7 @@ function frame(now){
     w.el.setAttribute("transform", `translate(${-w.off},${dy + w.y}) scale(1,${waveH.toFixed(3)}) translate(0,${-w.y})`);
   }
   tickRocks(dt);
+  tickWeather(rough, dt, now);
   if (!reduced){
     for (const c of clouds){
       c.x -= (sceneV * C.SCENE_SPEED_SCALE * .12 + 3) * c.k * dt;
