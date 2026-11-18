@@ -2739,13 +2739,15 @@ async function init(){
     role = "participant";
   } else if ((m = location.hash.match(/^#\/f\/([\w-]{16,})$/))){
     const fkHash = await sha(m[1]);
-    let tid = sget("rtw-fk-" + fkHash);
-    if (!tid && db){ try { tid = await cloudGet("fk/" + fkHash); } catch {} }
+    let tid = null;
+    if (db){ try { tid = await cloudGet("fk/" + fkHash); } catch {} }
+    const fkInCloud = !!tid;
+    tid ||= sget("rtw-fk-" + fkHash);
     role = "facilitator"; fkey = m[1];
     team = await loadTeam(tid);
     if (!team){ role = "participant"; fkey = null; return showLanding("This facilitator link isn't recognised."); }
     sset("rtw-fk-" + fkHash, team.id);
-    if (db) cloudSet("fk/" + fkHash, team.id);   // no-op if it is already there (write once)
+    if (db && !fkInCloud) cloudSet("fk/" + fkHash, team.id);   // a team made before Firebase
   } else {
     return showLanding();
   }
