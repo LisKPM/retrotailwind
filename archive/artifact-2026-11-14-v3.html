@@ -1,0 +1,1617 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RetroTailWind</title>
+<style>
+:root{
+  --ui-bg: rgba(14,27,48,.86);
+  --ui-bg-solid:#0e1b30;
+  --ui-line: rgba(255,255,255,.12);
+  --ui-text:#eef3fa;
+  --ui-muted:#a9b8cc;
+  --wind:#7fd6c2;
+  --rock:#f08a7e;
+  --barnacle:#e8c37a;
+  --star:#ffe59a;
+  --focus:#ffd56b;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#0f2f4d;color:var(--ui-text);
+  font:15px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--wind)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+body:not(.is-fac) .fac-only{display:none!important}
+
+/* the sea sits in the top part of the screen so the ship, rocks, wind and barnacles are never covered */
+#scene{position:fixed;top:0;left:0;width:100%;height:58vh;display:block}
+
+/* top bar */
+header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;
+  background:linear-gradient(to bottom,rgba(10,20,38,.8),rgba(10,20,38,0));z-index:20}
+.brand{font-weight:700;letter-spacing:.2px;font-size:17px;white-space:nowrap}
+.brand span{color:var(--wind)}
+.role{font-size:12px;padding:3px 9px;border-radius:99px;background:rgba(255,229,154,.16);color:var(--star);white-space:nowrap}
+.spacer{flex:1}
+#avatars{display:flex;align-items:center}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
+  color:#0d1a2e;border:2px solid #0e1b30;margin-left:-7px}
+.av.more{background:#2a3d5c;color:var(--ui-text)}
+.btn{background:rgba(255,255,255,.1);border:1px solid var(--ui-line);border-radius:10px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.18)}
+.btn[aria-pressed="true"],.btn.on{background:rgba(127,214,194,.25);border-color:rgba(127,214,194,.6)}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn.primary{background:var(--wind);color:#0b1a2c;border-color:transparent;font-weight:700}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled:hover{background:rgba(255,255,255,.1)}
+.btn.primary:disabled:hover{background:var(--wind)}
+#silentChip{font-size:13px;padding:4px 10px;border-radius:99px;background:rgba(255,229,154,.2);color:var(--star)}
+
+/* steps sit in the top bar */
+#voyage{display:flex;justify-content:center;min-width:0}
+@media (max-width:1180px){ .step:not([aria-current="step"]) .nm{display:none} }
+
+/* phases */
+#phasebar{background:var(--ui-bg);backdrop-filter:blur(10px);border:1px solid var(--ui-line);border-radius:12px;padding:4px}
+#steps{list-style:none;margin:0;padding:0;display:flex;align-items:center}
+#steps li{display:flex;align-items:center}
+#steps .sep{width:12px;height:1px;background:var(--ui-line);flex:none}
+#steps .sep.done{background:rgba(127,214,194,.55)}
+.step{border:0;background:transparent;border-radius:9px;padding:6px 9px;font-size:13px;color:var(--ui-muted);white-space:nowrap;display:flex;gap:6px;align-items:center}
+.step .num{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:11px;border:1px solid var(--ui-line)}
+.step[aria-current="step"]{background:rgba(127,214,194,.22);color:var(--ui-text);font-weight:600}
+.step[aria-current="step"] .num{background:var(--wind);color:#0b1a2c;border-color:transparent}
+.step.done{color:var(--ui-text)}
+.step.done .num{background:rgba(127,214,194,.3);border-color:transparent;color:var(--wind)}
+body.is-fac .step{cursor:pointer}
+body.is-fac .step:hover{color:var(--ui-text)}
+/* timer */
+#phasebar{display:flex;align-items:center;gap:6px}
+#timer{font-size:13px;font-variant-numeric:tabular-nums;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);white-space:nowrap;margin-right:2px}
+#timer.over{background:rgba(232,195,122,.2);color:var(--barnacle)}
+
+/* stage: one simple screen per step */
+#stage{position:fixed;left:50%;transform:translateX(-50%);z-index:16;background:var(--ui-bg-solid);border:1px solid var(--ui-line);
+  border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden}
+#stage{bottom:104px;max-height:calc(42vh - 30px)}
+#stage.st-dock,#stage.st-harbor{width:min(520px,calc(100vw - 24px))}
+.ship-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;margin:4px 0 6px}
+.ship-row input{flex:1;max-width:240px;padding:7px 10px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);color:var(--ui-text)}
+#stage.st-sail{width:min(620px,calc(100vw - 24px))}
+#stage.st-nav,#stage.st-course{width:min(1100px,calc(100vw - 32px));background:rgba(14,27,48,.95)}
+.stage-head{display:flex;align-items:baseline;gap:12px;padding:14px 18px 8px}
+.stage-head h2{margin:0;font-size:20px}
+.stage-stat{color:var(--ui-muted);font-size:13.5px}
+.stage-body{overflow:auto;padding:0 18px 12px;flex:1;min-height:0}
+.stage-foot{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--ui-line)}
+.stage-foot .grow{flex:1}
+.waiting{font-size:13px;color:var(--ui-muted)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:rgba(255,255,255,.08)}
+#stage h3{margin:10px 0 6px;font-size:13px;color:var(--ui-muted);font-weight:600}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.course{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.col-h{display:flex;align-items:center;gap:8px;color:var(--ui-text)!important;font-size:14px!important}
+.crew{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
+.crew-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:3px 10px 3px 7px;border-radius:99px;background:rgba(255,255,255,.07)}
+.plan{margin:2px 0 8px}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
+.plan-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.min-wrap{color:var(--ui-muted);font-size:13px;white-space:nowrap}
+.min-in{width:58px;padding:5px 7px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right;color:var(--ui-text)}
+.compose{display:grid;gap:10px;padding:2px 0 8px}
+.seg.big label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;font-weight:600}
+.seg.big .ico{font-size:22px}
+.compose-row{display:flex;gap:8px}
+.compose-row .text-in{flex:1;padding:12px;font-size:15px}
+.anon{font-size:13px;color:var(--ui-muted)}
+ul.mine{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;padding:3px 10px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--c) 40%,transparent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* panels */
+aside{position:fixed;top:64px;bottom:16px;width:340px;background:var(--ui-bg);backdrop-filter:blur(10px);
+  border:1px solid var(--ui-line);border-radius:var(--radius);display:flex;flex-direction:column;z-index:15;
+  transition:transform .3s ease,opacity .3s ease}
+#tunePanel{right:16px}
+aside.closed{transform:translateX(calc(-100% - 24px));opacity:0;pointer-events:none}
+#tunePanel.closed{transform:translateX(calc(100% + 24px))}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--ui-line)}
+.panel-head h2{font-size:15px;margin:0}
+.panel-body{overflow:auto;flex:1;padding:6px 10px 10px}
+.note{font-size:13px;color:var(--ui-muted);padding:6px 4px;margin:0}
+details{border-bottom:1px solid var(--ui-line);padding:4px 0}
+summary{cursor:pointer;padding:8px 4px;font-weight:600;display:flex;align-items:center;gap:8px;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸";font-size:11px;color:var(--ui-muted);transition:transform .2s}
+details[open]>summary::before{transform:rotate(90deg)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.count-pill{margin-left:auto;font-size:12px;color:var(--ui-muted);font-weight:500}
+ul.cards{list-style:none;margin:0;padding:0 0 6px}
+.card{background:rgba(255,255,255,.06);border-radius:10px;padding:9px 10px;margin:6px 0;border-left:3px solid var(--c)}
+.card.new{animation:cardIn .4s ease}
+@keyframes cardIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.card p{margin:0 0 6px;word-break:break-word}
+.meta{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ui-muted);flex-wrap:wrap}
+.meta .author{flex:1;min-width:80px}
+.vote{display:flex;align-items:center;gap:4px}
+.vote button{width:28px;height:28px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(255,255,255,.08);cursor:pointer}
+.vote button:disabled{opacity:.35;cursor:not-allowed}
+.vote .n{min-width:52px;text-align:center;color:var(--ui-text)}
+.scrape{font-size:12px}
+.card.scraped p::after{content:" ★ action item";color:var(--star);font-size:12px}
+
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg input{position:absolute;opacity:0}
+.seg label{text-align:center;padding:7px 4px;border-radius:9px;border:1px solid var(--ui-line);cursor:pointer;font-size:13.5px}
+.seg input:checked+label{background:color-mix(in srgb,var(--c) 28%,transparent);border-color:var(--c)}
+.seg input:focus-visible+label{outline:3px solid var(--focus);outline-offset:2px}
+.text-in{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25)}
+.row{display:flex;align-items:center;gap:8px;justify-content:space-between;font-size:13.5px}
+.add-btn{background:var(--wind);color:#0b1a2c;border:0;font-weight:700;border-radius:9px;padding:8px 14px;cursor:pointer}
+.budget{font-size:12.5px;color:var(--ui-muted);padding:6px 4px}
+
+/* tune panel */
+.readout{font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px;margin:8px 0}
+.readout b{color:var(--ui-text)}
+.param{display:grid;grid-template-columns:1fr 64px;gap:2px 8px;align-items:center;padding:7px 2px}
+.param label{font-size:13.5px}
+.param input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--wind)}
+.param input[type=number]{width:64px;padding:3px 5px;border-radius:7px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right}
+.param small{grid-column:1/-1;color:var(--ui-muted);font-size:12px}
+.param.check{grid-template-columns:1fr auto}
+.tune-actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0}
+.group-h{font-size:13px;margin:14px 2px 2px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.6px}
+
+/* speedometer */
+#speedo{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ui-bg);backdrop-filter:blur(10px);
+  border:1px solid var(--ui-line);border-radius:var(--radius);padding:8px 14px;display:flex;gap:14px;align-items:center;z-index:12}
+#speedo.hidden{display:none}
+.knots{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.knots small{font-size:13px;font-weight:500;color:var(--ui-muted)}
+.band{font-size:12px;color:var(--ui-muted)}
+#speedHidden{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:13px;color:var(--ui-muted);
+  background:var(--ui-bg);padding:6px 12px;border-radius:99px;z-index:12}
+
+/* center card (Dock / Harbor / Logbook) */
+#center{position:fixed;left:50%;top:54%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 24px));
+  max-height:calc(100vh - 160px);overflow:auto;background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:18px;
+  padding:18px 20px;z-index:30;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+#center h2{margin:0 0 4px;font-size:19px}
+#center h3{margin:16px 0 6px;font-size:14px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
+#center .close{position:absolute;top:12px;right:12px}
+#center p{margin:6px 0}
+.linkrow{display:flex;gap:6px;margin:6px 0}
+.linkrow input{flex:1;min-width:0;padding:7px 9px;border-radius:9px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);font:12.5px ui-monospace,Menlo,monospace}
+.muted{color:var(--ui-muted);font-size:13px}
+.big{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
+.outcomes{display:flex;gap:6px;flex-wrap:wrap}
+.starline{color:var(--star);font-weight:700;font-size:17px}
+table.log{width:100%;border-collapse:collapse;font-size:13px}
+table.log th,table.log td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--ui-line);vertical-align:top}
+table.log th{color:var(--ui-muted);font-weight:500}
+.bar{height:6px;border-radius:3px;background:var(--wind);margin-top:4px}
+ul.actions{margin:4px 0;padding-left:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:6px 0 12px}
+.stat{background:rgba(255,255,255,.06);border-radius:10px;padding:8px 10px}
+.stat span{display:block;font-size:12px;color:var(--ui-muted)}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;margin:2px 0}
+.stat b.bad{color:var(--rock)}
+.stat small{display:block;font-size:11px;color:var(--ui-muted);opacity:.85}
+.voy{border-top:1px solid var(--ui-line);padding:8px 0}
+.voy-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.voy-h .kn{color:var(--ui-muted);font-size:12px;font-variant-numeric:tabular-nums}
+.badge{margin-left:auto;font-size:12px;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.badge.inline{margin-left:0}
+.badge.ok{background:rgba(127,214,194,.18);color:var(--wind)}
+.badge.bad{background:rgba(240,138,126,.18);color:var(--rock)}
+.badge.neutral{background:rgba(255,255,255,.08);color:var(--ui-muted)}
+.voy-d{font-size:12.5px;color:var(--ui-muted);margin-top:3px}
+.voy-d .s{color:var(--star)}
+.rockpick{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.rockpick .btn{text-align:left;white-space:normal;display:flex;gap:8px;align-items:center}
+.rockpick .btn .v{margin-left:auto;font-size:12px;color:var(--ui-muted);white-space:nowrap}
+.rockpick .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.textin{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);margin-top:6px}
+.votebar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}
+ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
+.center-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+
+/* overlays */
+.overlay{position:fixed;inset:0;background:rgba(8,16,30,.55);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:40;padding:16px}
+.sheet{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:18px;padding:22px;width:min(440px,100%);display:grid;gap:12px}
+.sheet h1{margin:0;font-size:24px}
+.sheet h1 span{color:var(--wind)}
+.sheet label{display:grid;gap:6px;font-size:14px}
+
+/* toasts */
+#toasts{position:fixed;top:60px;right:16px;display:grid;justify-items:end;gap:6px;z-index:25;pointer-events:none;max-width:min(360px,calc(100vw - 32px))}
+.toast{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:99px;padding:6px 14px;font-size:13.5px;
+  display:flex;align-items:center;gap:8px;animation:toastIn .25s ease;transition:opacity .4s}
+@keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* mobile */
+#mobileBar{display:none}
+@media (max-width:760px){
+  header{gap:8px;padding:0 12px}
+  .brand{font-size:15px}
+  .hide-sm{display:none!important}
+  #voyage{position:fixed;top:50px;left:8px;right:8px}
+  #phasebar{padding:3px}
+  .step{padding:5px 7px}
+  #steps .sep{width:6px}
+  .step:not([aria-current="step"]) .nm{display:none}
+  #stage{bottom:calc(126px + env(safe-area-inset-bottom));max-height:calc(42vh - 50px);width:calc(100vw - 16px)!important}
+  .board,.course{grid-template-columns:1fr}
+  .stage-head{padding:12px 14px 6px}
+  .stage-body{padding:0 14px 10px}
+  .stage-foot .btn.primary{flex:1;padding:10px}
+  aside{top:auto;left:0!important;right:0!important;bottom:0;width:auto;height:64vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+  aside.closed,#tunePanel.closed{transform:translateY(105%)}
+  #speedo{bottom:calc(70px + env(safe-area-inset-bottom));padding:5px 12px;gap:10px}
+  #speedo svg.gauge{width:58px;height:34px}
+  #speedo svg.spark{display:none}
+  .knots{font-size:21px}
+  #speedHidden{bottom:calc(76px + env(safe-area-inset-bottom))}
+  #center{top:auto;bottom:calc(70px + env(safe-area-inset-bottom));transform:translateX(-50%);max-height:calc(100vh - 140px)}
+  #toasts{top:8px;right:8px;left:8px;max-width:none;justify-items:center}
+  #mobileBar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:8px;z-index:14}
+  #mobileBar .btn{flex:1;padding:12px;background:var(--ui-bg);backdrop-filter:blur(10px)}
+}
+
+/* svg pop animation */
+.pop{transform-box:fill-box;transform-origin:center;animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.twinkle{animation:twinkle 3s ease-in-out infinite}
+@keyframes twinkle{50%{opacity:.6}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c2f52"/>
+      <stop offset=".55" stop-color="#4f6f9f"/>
+      <stop offset="1" stop-color="#f0c8a0"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a7c9a"/>
+      <stop offset="1" stop-color="#0f2f4d"/>
+    </linearGradient>
+    <linearGradient id="sailGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9e2d2"/>
+      <stop offset="1" stop-color="#fffaf0"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#fff6cf" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ffe59a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="440" fill="url(#sky)"/>
+  <g id="constellation"></g>
+  <g id="clouds"></g>
+  <g id="northStarPos"><g id="northStar">
+    <circle id="nsGlow" r="90" fill="url(#glow)"/>
+    <path id="nsPath" fill="#fff6cf" stroke="#ffe59a" stroke-width="2"/>
+  </g></g>
+  <g id="gusts"></g>
+  <rect y="430" width="1600" height="470" fill="url(#sea)"/>
+  <path id="wave0" fill="#4a8fac" opacity=".55"/>
+  <g id="falling"></g>
+  <g id="boatWrap">
+    <path id="wake" fill="none" stroke="#e8f4f8" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+    <path id="wake2" fill="none" stroke="#e8f4f8" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+    <g id="boat">
+      <line x1="0" y1="-8" x2="0" y2="-262" stroke="#5a4636" stroke-width="7" stroke-linecap="round"/>
+      <path id="flag" fill="#f08a7e"/>
+      <path id="mainsail" fill="url(#sailGrad)" stroke="#cfc6b3" stroke-width="2"/>
+      <path id="jib" fill="url(#sailGrad)" stroke="#cfc6b3" stroke-width="2"/>
+      <line x1="2" y1="-24" x2="-146" y2="-24" stroke="#5a4636" stroke-width="5" stroke-linecap="round"/>
+      <path d="M-150,-6 L178,-10 Q140,52 92,62 L-112,62 Q-146,40 -150,-6 Z" fill="#b5523f"/>
+      <path d="M-150,-6 L178,-10 L172,2 L-148,6 Z" fill="#f5ead6"/>
+      <g id="barnacles"></g>
+      <text id="hullName" x="12" y="38" text-anchor="middle" fill="#f5ead6" font-family="Georgia,'Palatino Linotype','Book Antiqua',serif" font-style="italic" font-weight="700" font-size="23" letter-spacing="1.5"></text>
+    </g>
+  </g>
+  <g id="splashes"></g>
+  <path id="wave1" fill="#2f6f8f" opacity=".85"/>
+  <path id="wave2" fill="#1d4e72" opacity=".9"/>
+</svg>
+
+<header>
+  <div class="brand">Retro<span>TailWind</span></div>
+  <span class="role hide-sm" id="roleChip"></span>
+  <span id="silentChip" role="status" hidden></span>
+  <div class="spacer"></div>
+  <div id="voyage">
+  <nav id="phasebar" aria-label="Retro phases">
+    <ol id="steps"></ol>
+    <span id="timer" role="timer" hidden></span>
+  </nav>
+  </div>
+  <div class="spacer"></div>
+  <div id="avatars" aria-label="People in the room"></div>
+  <button class="btn" id="copyLink">Copy team link</button>
+  <button class="btn hide-sm" id="logBtn" hidden>Logbook</button>
+  <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
+</header>
+
+
+<section id="stage" aria-labelledby="stageTitle"></section>
+
+
+<aside id="tunePanel" class="closed fac-only" aria-label="Tune settings">
+  <div class="panel-head">
+    <h2>Tune (facilitator)</h2>
+    <button class="btn small" id="closeTune" aria-label="Close tune panel">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="tune-actions">
+      <button class="btn small" id="simBtn" aria-pressed="false">Simulate team</button>
+      <button class="btn small" id="silentBtn">Start silent writing</button>
+      <button class="btn small" id="exampleBtn">Load example cards</button>
+      <button class="btn small" id="clearBtn">Clear cards</button>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div id="params"></div>
+    <div class="tune-actions">
+      <button class="btn small" id="copyCfg">Copy as config.ts</button>
+      <button class="btn small" id="resetCfg">Reset to defaults</button>
+    </div>
+  </div>
+</aside>
+
+<div id="speedo" role="group" aria-label="Speed">
+  <svg class="gauge" width="96" height="56" viewBox="0 0 100 58" aria-hidden="true">
+    <path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8" stroke-linecap="round"/>
+    <path id="gaugeArc" d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--wind)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+    <line id="targetTick" x1="50" y1="6" x2="50" y2="16" stroke="var(--star)" stroke-width="3" stroke-linecap="round"/>
+    <line id="needle" x1="50" y1="52" x2="50" y2="16" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="50" cy="52" r="4" fill="#fff"/>
+  </svg>
+  <div>
+    <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
+    <div class="band" id="band">Becalmed</div>
+  </div>
+  <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
+    <polyline id="spark" fill="none" stroke="var(--wind)" stroke-width="2" stroke-linejoin="round"/>
+  </svg>
+</div>
+<div id="speedHidden" hidden>Speed hidden by facilitator</div>
+
+<section id="center" aria-labelledby="centerTitle" hidden>
+  <button class="btn small close" id="centerClose" aria-label="Close">✕</button>
+  <div id="centerBody"></div>
+</section>
+
+<div id="landing" class="overlay" hidden>
+  <div class="sheet">
+    <h1>Retro<span>TailWind</span></h1>
+    <p class="muted" style="margin:0">Guided sprint retros on a shared sea. No accounts: you get a team link to share and a facilitator link to keep.</p>
+    <p id="landingMsg" class="muted" style="margin:0;color:var(--star)" hidden></p>
+    <form id="createForm" style="display:grid;gap:10px">
+      <label>Team name <input class="text-in" id="teamName" maxlength="50" placeholder="e.g. Payments squad"></label>
+      <button class="btn primary" type="submit">Create team</button>
+    </form>
+    <button class="btn" id="continueBtn" hidden>Continue your last retro</button>
+  </div>
+</div>
+
+<div id="nameDlg" class="overlay" hidden>
+  <form class="sheet" id="nameForm">
+    <h1>Come aboard</h1>
+    <label>Your display name <input class="text-in" id="nameIn" maxlength="30" required autocomplete="nickname"></label>
+    <p class="muted" style="margin:0">We'll remember it in this browser.</p>
+    <button class="btn primary" type="submit">Join</button>
+  </form>
+</div>
+
+<div id="toasts" aria-hidden="true"></div>
+<div id="live" class="sr-only" aria-live="polite"></div>
+
+<nav id="mobileBar" aria-label="Panels">
+  <button class="btn" id="mLog" hidden>Logbook</button>
+  <button class="btn fac-only" id="mTune">Tune</button>
+</nav>
+
+<script>
+"use strict";
+/* ================================================================
+   HELPERS
+   ================================================================ */
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs={}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+function h(tag, props={}, ...kids){
+  const e = document.createElement(tag);
+  for (const k in props){
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e[k] = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()){ if (k == null || k === false) continue; e.append(k instanceof Node ? k : String(k)); }
+  return e;
+}
+const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+// Storage that never throws (private windows, blocked storage, previews)
+const mem = {};
+function sget(k, tab){ try { const v = (tab ? sessionStorage : localStorage).getItem(k); if (v != null) return JSON.parse(v); } catch {} return mem[(tab?"s:":"")+k] ?? null; }
+function sset(k, v, tab){ mem[(tab?"s:":"")+k] = v; try { (tab ? sessionStorage : localStorage).setItem(k, JSON.stringify(v)); } catch {} }
+
+// Long random IDs (128+ bits), URL-safe
+function rid(bytes){ const a = new Uint8Array(bytes); crypto.getRandomValues(a); let s = ""; for (const b of a) s += String.fromCharCode(b); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+async function sha(s){
+  try { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,"0")).join(""); }
+  catch { let x = 0; for (const ch of s) x = (x*31 + ch.charCodeAt(0)) | 0; return "f" + (x >>> 0).toString(16); }
+}
+
+/* ================================================================
+   CONFIG — everything tunable lives here. (Becomes config/retro.ts)
+   The facilitator's values are shared with the whole room.
+   ================================================================ */
+const DEFAULTS = {
+  VOTE_FACTOR: 0.25, WIND_GAIN: 4, MAX_THRUST: 10, ROCK_BASE: 2.5, BARNACLE_BASE: 0.6,
+  SCRAPED_FACTOR: 0.5, BASE_DRIFT: 2, MAX_SPEED: 14,
+  TAU: 2.5, MAX_ACCEL: 2.5,
+  VOTES_PER_PERSON: 5, MAX_VOTES_PER_CARD: 3, SILENT_TIMER_MIN: 3, SHOW_SPEEDOMETER: true,
+  MAX_EFFECTS: 4, MAX_BARNACLE_SPRITES: 12, TOAST_MERGE_MS: 2000, HISTORY_MINUTES: 10, SCENE_SPEED_SCALE: 14,
+  SIM_PEOPLE: 20, SIM_ACTIONS_PER_MIN: 40, SIM_ANON_RATE: 0.15,
+  SAIL_MIN: 7, NAV_MIN: 5, COURSE_MIN: 10, HARBOR_MIN: 5
+};
+const PARAMS = [
+  ["Speed model"],
+  ["VOTE_FACTOR","Vote factor",0,1,.05,"Card effect = base × (1 + votes × this)"],
+  ["WIND_GAIN","Wind gain",.5,10,.1,"thrust = gain × ln(1 + wind weight)"],
+  ["MAX_THRUST","Max wind thrust (kn)",2,20,.5,"Cap so lots of wind tops out at cruising"],
+  ["ROCK_BASE","Rock drag (kn each)",0,8,.1,"Linear — rocks hit harder than wind helps"],
+  ["BARNACLE_BASE","Barnacle drag (kn each)",0,3,.05,"Small, stacks"],
+  ["SCRAPED_FACTOR","Scraped barnacle keeps",0,1,.05,"Share of drag left after it becomes an action item"],
+  ["BASE_DRIFT","Base drift (kn)",0,6,.1,"Speed with no cards at all"],
+  ["MAX_SPEED","Max speed (kn)",4,30,1,"Speedometer top"],
+  ["Inertia"],
+  ["TAU","Ease time τ (s)",.3,8,.1,"How long speed takes to settle"],
+  ["MAX_ACCEL","Max change (kn/s)",.5,10,.1,"Speed never jumps faster than this"],
+  ["Retro rules"],
+  ["VOTES_PER_PERSON","Votes per person",1,20,1,""],
+  ["MAX_VOTES_PER_CARD","Max votes per card (per person)",1,10,1,""],
+  ["SILENT_TIMER_MIN","Silent writing (min)",.5,15,.5,"Names hidden until it ends"],
+  ["SHOW_SPEEDOMETER","Show speedometer","bool",0,0,"Hide so speed isn't a team score"],
+  ["Step timers (a guide, not a hard stop)"],
+  ["SAIL_MIN","Sail (min)",1,60,1,""],
+  ["NAV_MIN","Navigate (min)",1,60,1,""],
+  ["COURSE_MIN","Set course (min)",1,60,1,""],
+  ["HARBOR_MIN","Harbor (min)",1,60,1,""],
+  ["Scene & performance"],
+  ["SCENE_SPEED_SCALE","Water scroll per knot (px/s)",2,40,1,""],
+  ["MAX_EFFECTS","Max effects at once",1,12,1,"Extra splashes/gusts wait in a queue"],
+  ["MAX_BARNACLE_SPRITES","Barnacles drawn on hull",1,20,1,"The rest show as +N"],
+  ["TOAST_MERGE_MS","Merge toasts within (ms)",0,6000,250,"\"Ana and 3 others added wind\""],
+  ["HISTORY_MINUTES","Speed chart window (min)",1,60,1,""],
+  ["Simulation (fake data)"],
+  ["SIM_PEOPLE","Simulated people",1,40,1,""],
+  ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Cards in Sail, votes in Navigate"],
+  ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
+];
+let C = {...DEFAULTS};
+
+/* The 5 standard retro phases (Derby & Larsen), in nautical terms */
+const PHASES = [
+  { key:"dock",   name:"Dock",       std:"Set the stage",       hint:"Name the ship, vote on last retro's star, then check in." },
+  { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, rocks and barnacles. The boat reacts live." },
+  { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Votes change the speed." },
+  { key:"course", name:"Set course", std:"Decide what to do",   hint:"Turn top rocks and barnacles into action items (★)." },
+  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to a rock, save the voyage." },
+];
+/* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
+const STAR_OUT = {
+  met:       ["Star met", "ok"],
+  pending:   ["In progress", "neutral"],
+  returned:  ["Rock returned", "bad"],
+  missed:    ["Star missed", "bad"],
+  unchecked: ["Not checked", "neutral"],
+  none:      ["No star", "neutral"],
+  reached:   ["Reached ★", "ok"],
+  closer:    ["Closer", "neutral"],
+  "not-yet": ["Not yet", "neutral"],
+};
+const MET = new Set(["met","reached"]);
+const SCORED = new Set(["met","returned","missed","reached","closer","not-yet"]);
+const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|start|stop|hold|schedule|review|refactor|migrate|remove|introduce|try|organi[sz]e|plan)\b/i;
+
+/* ================================================================
+   SPEED MODEL (pure — becomes lib/speed.ts)
+   ================================================================ */
+const totalVotes = c => Object.values(c.votes).reduce((a,b)=>a+b,0);
+const weight = c => 1 + totalVotes(c) * C.VOTE_FACTOR;
+function computeSpeed(cards){
+  let W = 0, rock = 0, barn = 0;
+  for (const c of cards){
+    const w = weight(c);
+    if (c.type === "wind") W += w;
+    else if (c.type === "rock") rock += C.ROCK_BASE * w;
+    else barn += C.BARNACLE_BASE * w * (c.scraped ? C.SCRAPED_FACTOR : 1);
+  }
+  const thrust = Math.min(C.MAX_THRUST, C.WIND_GAIN * Math.log(1 + W));
+  const target = clamp(C.BASE_DRIFT + thrust - rock - barn, 0, C.MAX_SPEED);
+  return { W, thrust, rock, barn, target };
+}
+function stepSpeed(v, target, dt){
+  const dv = (target - v) * (1 - Math.exp(-dt / C.TAU));
+  const max = C.MAX_ACCEL * dt;
+  return v + clamp(dv, -max, max);
+}
+
+/* ================================================================
+   STATE
+   team = { id, name, fkHash, config, sessions:[archived], current: session }
+   session = { id, ship, star, starRock, starVotes, rockReturned, nextStar, contributors,
+               phase, cards, silentUntil, history, startedAt }
+   star      = the goal checked in THIS retro (set at the previous Harbor)
+   starRock  = the rock/barnacle text that star was meant to remove
+   nextStar  = { rockId, rock, text } picked at this Harbor for the next retro
+   ================================================================ */
+const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
+let reduced = reducedMQ.matches;
+reducedMQ.addEventListener?.("change", e => reduced = e.matches);
+
+const COLORS = ["#7fd6c2","#f08a7e","#e8c37a","#9fb8ff","#c9a2f2","#8ee08a","#ffb38a","#7cc8f0","#f2a2c9","#d6e07f"];
+const NAMES = ["Ana","Ben","Chen","Dara","Eli","Fatma","Gus","Hana","Ivo","Jas","Kai","Lena","Mo","Noor","Omar","Pia","Quinn","Rae","Sam","Tomi","Uma","Vik","Wen","Xavi","Yara","Zoe","Ari","Bo","Cleo","Dev","Emi","Finn","Gia","Hugo","Ines","Jon","Kim","Lou","Max","Nia"];
+const me = { id: "", name: "", color: "#ffffff" };
+let team = null, S = null, role = "participant", fkey = null;
+let sims = [];
+const remotes = new Map();
+let model = { W:0, thrust:0, rock:0, barn:0, target:0 };
+let speed = 0;
+let history = [];
+let bc = null;
+
+function newSession({ ship = "", star = "", starRock = null } = {}){
+  return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {},
+    phase: 0, phaseStartedAt: 0, phaseMinutes: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
+}
+const byId = id => S.cards.find(c => c.id === id);
+const isFac = () => role === "facilitator";
+
+/* ================================================================
+   STAR CHECK (pure — becomes lib/star.ts)
+   A star is tied to a rock. Next retro: did that rock come back?
+   ================================================================ */
+const STOP = new Set("the and for with was were are been our not too but its this that from into very had has have just got get".split(" "));
+const stem = w => w.length > 4 ? w.replace(/(ing|ed|es|s)$/, "") : w;
+const words = s => (s || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
+function similar(a, b){
+  const A = new Set(words(a)), B = new Set(words(b));
+  if (!A.size || !B.size) return false;
+  let n = 0; for (const w of A) if (B.has(w)) n++;
+  return n / Math.min(A.size, B.size) >= .5;
+}
+const problems = cards => cards.filter(c => c.type !== "wind");
+const tally = (v = {}) => { const a = Object.values(v); return { yes: a.filter(x => x === "yes").length, no: a.filter(x => x === "no").length }; };
+function rockMatches(s = S){ return s.starRock ? problems(s.cards).filter(c => similar(c.text, s.starRock)) : []; }
+function rockReturnedOf(s = S){ return s.rockReturned ?? (s.starRock ? rockMatches(s).length > 0 : null); }
+function starOutcome(s = S){
+  if (!s.star) return "none";
+  const ret = rockReturnedOf(s), t = tally(s.starVotes);
+  if (ret === true) return "returned";
+  if (ret === false) return t.no > t.yes ? "missed" : "met";
+  if (!t.yes && !t.no) return "unchecked";
+  return t.yes > t.no ? "met" : "missed";
+}
+function participationOf(s = S){
+  const added = Object.keys(s.contributors || {}).length;
+  return { added, present: Math.max(added, people().length) };
+}
+
+/* ================================================================
+   SYNC — every change is an action. Applied locally, saved, and
+   broadcast. Here: BroadcastChannel between tabs of this browser.
+   Live version: server route → Postgres → Supabase Realtime broadcast.
+   ================================================================ */
+let saveT = null;
+function persist(){ clearTimeout(saveT); saveT = setTimeout(() => sset("rtw-team-" + team.id, team), 250); }
+function dispatch(a){ apply(a, true); persist(); try { bc && bc.postMessage(a); } catch {} }
+function onRemote(a){
+  if (!a || !a.type) return;
+  if (a.type === "hello" || a.type === "bye") return presence(a);
+  apply(a, false);
+}
+
+function apply(a, local){
+  switch (a.type){
+    case "card.add": {
+      if (byId(a.card.id)) return;
+      S.cards.push(a.card);
+      if (a.by){ (S.contributors ||= {})[a.by] = 1; }
+      recompute(); renderStage();
+      if (a.card.type === "barnacle") renderBarnacles(a.card.id);
+      if (a.card.type === "wind") gustFx(); else if (a.card.type === "rock") rockFx();
+      toast(a.card.type, a.card.anonymous || silentActive() ? null : a.card.authorName);
+      break;
+    }
+    case "vote": {
+      const c = byId(a.cardId); if (!c) return;
+      const n = Math.max(0, (c.votes[a.pid] || 0) + a.delta);
+      if (n) c.votes[a.pid] = n; else delete c.votes[a.pid];
+      recompute(); renderStage();
+      if (c.type === "barnacle") renderBarnacles();
+      if (a.delta > 0 && c.type === "wind") gustBoost = Math.max(gustBoost, .5);
+      if (a.delta > 0 && c.type === "rock") jolt = Math.max(jolt, .4);
+      break;
+    }
+    case "scrape": {
+      const c = byId(a.cardId); if (!c || c.scraped) return;
+      c.scraped = true; recompute(); renderBarnacles(); renderStars(); renderStage();
+      plainToast(`★ New action item: ${c.text}`);
+      break;
+    }
+    case "phase":
+      S.phase = a.phase; S.phaseStartedAt = a.startedAt || 0; S.phaseMinutes = a.minutes || 0;
+      renderPhase(); renderStage(); centerMode = null; renderModal();
+      if (!local) announce(`Step ${a.phase + 1}: ${PHASES[a.phase].name}`);
+      break;
+    case "names":
+      if (a.ship != null) S.ship = a.ship;
+      if (a.star != null) S.star = a.star;
+      renderTitle(); renderPhase(); renderStage();
+      break;
+    case "silent":
+      S.silentUntil = a.until; syncSilent(); renderStage();
+      break;
+    case "config":
+      C = {...DEFAULTS, ...a.config}; team.config = C;
+      if (!local) renderParams();
+      recompute(); renderStage(); renderBarnacles(); applySpeedoVisibility();
+      if (!local && simTimer) ensureSims(C.SIM_PEOPLE);
+      break;
+    case "cards.replace":
+      S.cards = a.cards; rebuildCards();
+      S.contributors = {}; a.cards.forEach(c => { if (c.author) S.contributors[c.author] = 1; });
+      renderCenter();
+      break;
+    case "starVote":
+      S.starVotes ||= {};
+      if (a.v) S.starVotes[a.pid] = a.v; else delete S.starVotes[a.pid];
+      renderCenter();
+      break;
+    case "rockReturned":
+      S.rockReturned = a.value; renderCenter();
+      break;
+    case "nextStar":
+      S.nextStar = a.nextStar;
+      if (!local || a.rerender) renderCenter();
+      break;
+    case "session.next":
+      team.sessions = a.sessions; team.current = S = a.session;
+      history = []; centerMode = null; myCards.clear();
+      rebuildAll();
+      plainToast("New retro started at the Dock");
+      break;
+  }
+}
+
+/* Presence (who's in the room) */
+function hello(reply){
+  try { bc && bc.postMessage({ type:"hello", reply: !!reply, person:{ id:me.id, name:me.name, color:me.color }, extras: isFac() ? sims : [] }); } catch {}
+}
+function presence(a){
+  if (a.type === "bye"){ remotes.delete(a.pid); renderAvatars(); return; }
+  if (!a.person || a.person.id === me.id) return;
+  const isNew = !remotes.has(a.person.id);
+  remotes.set(a.person.id, { person: a.person, extras: a.extras || [], seen: Date.now() });
+  if (isNew){ plainToast(`${a.person.name} joined`); if (!a.reply) hello(true); }
+  renderAvatars();
+}
+function prunePresence(){
+  const now = Date.now(); let changed = false;
+  for (const [k, r] of remotes) if (now - r.seen > 12000){ remotes.delete(k); changed = true; }
+  if (changed) renderAvatars();
+}
+function people(){
+  const seen = new Set(), out = [];
+  const add = p => { if (p && !seen.has(p.id)){ seen.add(p.id); out.push(p); } };
+  add(me); sims.forEach(add);
+  for (const r of remotes.values()){ add(r.person); r.extras.forEach(add); }
+  return out;
+}
+
+/* ================================================================
+   SCENE
+   ================================================================ */
+const WAVES = [
+  { el: $("wave0"), y: 452, amp: 6, len: 160, k: .35 },
+  { el: $("wave1"), y: 596, amp: 12, len: 240, k: .8 },
+  { el: $("wave2"), y: 690, amp: 18, len: 340, k: 1.25 },
+];
+for (const w of WAVES){
+  let d = `M0,${w.y}`;
+  const n = Math.ceil((1600 + w.len*2) / w.len) + 1;
+  for (let i=0;i<n;i++){ const x = i * w.len; d += ` Q${x + w.len/4},${w.y - w.amp} ${x + w.len/2},${w.y} T${x + w.len},${w.y}`; }
+  d += ` L${n*w.len},900 L0,900 Z`;
+  w.el.setAttribute("d", d);
+  w.off = Math.random() * w.len;
+}
+const clouds = [];
+for (let i=0;i<5;i++){
+  const g = el("g", { opacity: .5 + Math.random()*.3 }, $("clouds"));
+  const s = .6 + Math.random()*.8;
+  [[0,0,40],[34,-12,32],[66,2,30],[30,10,34]].forEach(([x,y,r]) => el("circle",{cx:x*s,cy:y*s,r:r*s,fill:"#f6efe6"},g));
+  clouds.push({ g, x: Math.random()*1800, y: 70 + Math.random()*230, k: .3 + s*.4 });
+}
+function starPath(R, r){ let d=""; for(let i=0;i<10;i++){ const a=Math.PI/5*i - Math.PI/2, rad = i%2? r:R; d += (i?"L":"M") + (Math.cos(a)*rad).toFixed(1) + "," + (Math.sin(a)*rad).toFixed(1); } return d + "Z"; }
+
+// Action items: small constellation in the sky
+const STAR_SLOTS = [[1060,110],[1140,70],[1230,120],[1310,80],[1400,140],[1470,95],[1540,170],[1200,200],[1350,230],[1460,260],[1110,260],[1560,60]];
+const starLines = el("g", {}, $("constellation"));
+const starEls = STAR_SLOTS.map(([x,y]) => {
+  const g = el("g", { transform:`translate(${x},${y})` }, $("constellation"));
+  const glow = el("circle", { r: 22, fill: "url(#glow)", opacity: 0 }, g);
+  const dot = el("path", { d: starPath(7,3), fill: "#ffffff", opacity: .45 }, g);
+  return { g, glow, dot };
+});
+function visibleSky(){
+  const scale = Math.max(innerWidth / 1600, ($("scene").clientHeight || innerHeight) / 900);
+  const w = innerWidth / scale;
+  return { left: 800 - w/2, right: 800 + w/2, w };
+}
+function layoutConstellation(){
+  const { right, w } = visibleSky();
+  const g = $("constellation");
+  if (right >= 1580){ g.removeAttribute("transform"); }
+  else {
+    const s = Math.min(1, (w * .8) / 520);
+    g.setAttribute("transform", `translate(${right - 24 - 1560 * s},${(1 - s) * 60 + 20}) scale(${s})`);
+  }
+  // The named star sits on the horizon ahead of the boat
+  const x = Math.min(1320, right - 80);
+  $("northStarPos").setAttribute("transform", `translate(${x},392)`);
+}
+addEventListener("resize", layoutConstellation);
+$("nsPath").setAttribute("d", starPath(30, 12));
+
+function renderStars(){
+  const lit = S.cards.filter(c => c.scraped).length;
+  starLines.innerHTML = "";
+  starEls.forEach((s, i) => {
+    const on = i < lit;
+    s.dot.setAttribute("fill", on ? "#fff6cf" : "#ffffff");
+    s.dot.setAttribute("opacity", on ? 1 : .45);
+    s.glow.setAttribute("opacity", on ? .9 : 0);
+    s.dot.setAttribute("class", on ? "twinkle" : "");
+    if (on && i > 0){
+      const [x1,y1] = STAR_SLOTS[i-1], [x2,y2] = STAR_SLOTS[i];
+      el("line", { x1,y1,x2,y2, stroke:"#fff6cf", "stroke-width":1.5, opacity:.45 }, starLines);
+    }
+  });
+}
+
+const BARN_SLOTS = [[-100,38],[-70,46],[-40,40],[-10,48],[20,42],[50,48],[80,40],[-120,50],[-55,54],[5,56],[65,55],[105,44],[-85,30],[35,32],[-25,32],[95,30],[-110,22],[120,34],[-5,24],[60,26]];
+function renderBarnacles(newId){
+  const g = $("barnacles"); g.innerHTML = "";
+  const active = S.cards.filter(c => c.type === "barnacle" && !c.scraped);
+  const shown = Math.min(active.length, C.MAX_BARNACLE_SPRITES, BARN_SLOTS.length);
+  for (let i=0;i<shown;i++){
+    const [x,y] = BARN_SLOTS[i]; const c = active[i];
+    const b = el("g", { transform:`translate(${x},${y})` }, g);
+    const inner = el("g", {}, b);
+    const r = 5 + Math.min(4, totalVotes(c));
+    el("circle", { r, fill:"#d9c7a3", stroke:"#7a6748", "stroke-width":1.5 }, inner);
+    el("circle", { r: r*.4, fill:"#7a6748" }, inner);
+    if (c.id === newId) inner.setAttribute("class","pop");
+  }
+  if (active.length > shown){
+    const t = el("text", { x: 130, y: 58, fill:"#fff", "font-size": 16, "font-weight": 700 }, g);
+    t.textContent = `+${active.length - shown}`;
+  }
+}
+
+// Effect queue (keeps 20 people smooth)
+let activeFx = 0; const fxQueue = []; const anims = [];
+function fx(run){
+  if (reduced) return;
+  if (activeFx >= C.MAX_EFFECTS){ if (fxQueue.length < 12) fxQueue.push(run); return; }
+  activeFx++;
+  run(() => { activeFx--; if (fxQueue.length) fx(fxQueue.shift()); });
+}
+function animate(dur, update, done){ anims.push({ t0: performance.now(), dur, update, done }); }
+
+let gustBoost = 0, jolt = 0, sinkKick = 0;
+function gustFx(){
+  gustBoost = 1;
+  fx(done => {
+    const lines = [];
+    for (let i=0;i<5;i++){
+      const y = 140 + Math.random()*260, len = 120 + Math.random()*120;
+      const p = el("path", { d:`M0,0 q${len/2},-14 ${len},0`, fill:"none", stroke:"#ffffff", "stroke-width":3, "stroke-linecap":"round", opacity:0 }, $("gusts"));
+      lines.push({ p, y, delay: Math.random()*.3 });
+    }
+    animate(1400, t => {
+      for (const l of lines){
+        const q = clamp((t - l.delay)/(1 - l.delay), 0, 1);
+        l.p.setAttribute("transform", `translate(${-250 + q*1500},${l.y})`);
+        l.p.setAttribute("opacity", Math.sin(q*Math.PI)*.7);
+      }
+    }, () => { lines.forEach(l => l.p.remove()); done(); });
+  });
+}
+function rockFx(){
+  jolt = 1; sinkKick = 1;
+  fx(done => {
+    const x = 980 + Math.random()*300, landY = 560 + Math.random()*40;
+    const rock = el("path", { d:"M-26,10 L-18,-14 L4,-22 L24,-8 L28,12 Z", fill:"#5d6470", stroke:"#3c414a", "stroke-width":2 }, $("falling"));
+    animate(520, p => {
+      rock.setAttribute("transform", `translate(${x},${-60 + (landY + 60) * p*p}) rotate(${p*80})`);
+    }, () => {
+      const splash = el("g", { transform:`translate(${x},${landY})` }, $("splashes"));
+      const ring = el("ellipse", { rx: 10, ry: 3, fill:"none", stroke:"#e8f4f8", "stroke-width":3 }, splash);
+      const drops = Array.from({length:9}, () => ({ e: el("circle",{ r: 3+Math.random()*3, fill:"#e8f4f8"}, splash), vx:(Math.random()-.5)*160, vy:-(120+Math.random()*160) }));
+      animate(900, p => {
+        rock.setAttribute("transform", `translate(${x},${landY + p*40}) rotate(80)`);
+        rock.setAttribute("opacity", 1 - p);
+        ring.setAttribute("rx", 10 + p*90); ring.setAttribute("ry", 3 + p*16); ring.setAttribute("opacity", 1 - p);
+        const t = p*.9;
+        for (const d of drops){ d.e.setAttribute("cx", d.vx*t); d.e.setAttribute("cy", d.vy*t + 400*t*t); d.e.setAttribute("opacity", 1 - p); }
+      }, () => { rock.remove(); splash.remove(); done(); });
+    });
+  });
+}
+
+/* ================================================================
+   UI: title (ship → star) and phases
+   ================================================================ */
+function renderTitle(){
+  const t = $("hullName");
+  t.removeAttribute("textLength"); t.removeAttribute("lengthAdjust");
+  t.textContent = S.ship || "";
+  try { if (S.ship && t.getComputedTextLength() > 220){ t.setAttribute("textLength", 220); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch {}
+  const inp = $("shipName");
+  if (inp && document.activeElement !== inp) inp.value = S.ship || "";
+  document.title = `${S.ship || team.name} · RetroTailWind`;
+}
+let nameT = null;
+function onShipInput(inp){
+  clearTimeout(nameT);
+  nameT = setTimeout(() => dispatch({ type:"names", ship: inp.value.trim() }), 300);
+}
+
+function renderPhase(){
+  const steps = $("steps"); steps.innerHTML = "";
+  PHASES.forEach((p, i) => {
+    if (i) steps.appendChild(h("li", { "aria-hidden":"true" }, h("span", { class: "sep" + (i <= S.phase ? " done" : "") })));
+    const done = i < S.phase, cur = i === S.phase;
+    const b = h("button", { class: "step" + (done ? " done" : ""), type:"button",
+      "aria-current": cur ? "step" : null, title: p.name,
+      "aria-label": `Step ${i+1}: ${p.name}${done ? ", done" : cur ? ", current" : ""}`, "aria-disabled": isFac() && !cur ? null : "true",
+      onclick: () => { if (isFac() && !cur) gotoPhase(i); } },
+      h("span", { class:"num", text: done ? "✓" : i+1 }), h("span", { class:"nm", text: p.name }));
+    steps.appendChild(h("li", {}, b));
+  });
+}
+
+/* ================================================================
+   UI: cards
+   ================================================================ */
+function silentActive(){ return Date.now() < (S.silentUntil || 0); }
+function personVotesUsed(pid){ return S.cards.reduce((a,c) => a + (c.votes[pid]||0), 0); }
+function rebuildCards(){ recompute(); renderBarnacles(); renderStars(); renderStage(); }
+
+/* Actions from this person */
+function myVote(cardId, delta){
+  const c = byId(cardId); if (!c || S.phase !== 2) return;
+  if (!canVote(c, me.id, delta)) return;
+  dispatch({ type:"vote", cardId, pid: me.id, delta });
+}
+function canVote(c, pid, delta){
+  const cur = c.votes[pid] || 0;
+  if (delta > 0) return cur < C.MAX_VOTES_PER_CARD && personVotesUsed(pid) < C.VOTES_PER_PERSON;
+  return cur > 0;
+}
+function recompute(){ model = computeSpeed(S.cards); renderReadout(); }
+
+/* ================================================================
+   Toasts + live region
+   ================================================================ */
+const VERB = { wind:"added wind 🌬", rock:"hit a rock 🪨", barnacle:"found a barnacle 🐚" };
+let lastToast = null;
+function toast(type, name){
+  const who = name || "Someone";
+  const now = Date.now();
+  if (lastToast && lastToast.type === type && now - lastToast.t < C.TOAST_MERGE_MS && lastToast.el.isConnected){
+    lastToast.names.add(who); lastToast.count++; lastToast.t = now;
+    const first = [...lastToast.names][0];
+    lastToast.text.textContent = `${first} and ${lastToast.count - 1} other${lastToast.count>2?"s":""} ${VERB[type]}`;
+    clearTimeout(lastToast.timer); lastToast.timer = setTimeout(() => fade(lastToast.el), 2600);
+    return;
+  }
+  const d = pushToast(`var(--${type})`, `${who} ${VERB[type]}`);
+  lastToast = { type, el: d, text: d.lastChild, names: new Set([who]), count: 1, t: now, timer: setTimeout(() => fade(d), 2600) };
+  announce(`${who} ${VERB[type].replace(/\s\S+$/,"")}`);
+}
+function plainToast(text){ const d = pushToast("var(--star)", text); setTimeout(() => fade(d), 3200); announce(text); }
+function pushToast(color, text){
+  const box = $("toasts");
+  while (box.children.length >= 3) box.firstChild.remove();
+  const d = h("div", { class:"toast" }, h("span", { class:"dot", style:`background:${color}` }), h("span", { text }));
+  box.appendChild(d);
+  return d;
+}
+function fade(d){ d.style.opacity = 0; setTimeout(() => d.remove(), 400); }
+let announceT = 0;
+function announce(msg){ const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
+
+function renderAvatars(){
+  const box = $("avatars"); box.innerHTML = "";
+  const all = people();
+  const max = innerWidth < 760 ? 3 : 6;
+  all.slice(0, max).forEach(p => {
+    box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,2) }));
+  });
+  if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
+  if (S && S.phase === 0) renderStage();
+  box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
+}
+
+/* ================================================================
+   Center card: Dock / Harbor / Logbook / Links
+   ================================================================ */
+let centerMode = null;
+const teamLink = () => location.href.split("#")[0] + "#/t/" + team.id;
+const facLink = () => location.href.split("#")[0] + "#/f/" + fkey;
+
+async function copy(text, btn){
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+  if (btn){ const old = btn.textContent; btn.textContent = ok ? "Copied ✓" : "Select & copy"; setTimeout(() => btn.textContent = old, 1500); }
+  return ok;
+}
+function linkRow(label, url, note){
+  const inp = h("input", { readonly:true, value:url, "aria-label": label, onfocus: e => e.target.select() });
+  const btn = h("button", { class:"btn small", type:"button", text:"Copy" });
+  btn.onclick = async () => { if (!(await copy(url, btn))){ inp.focus(); inp.select(); } };
+  return [h("div", { class:"muted", text: label }), h("div", { class:"linkrow" }, inp, btn), note ? h("p", { class:"muted", text: note }) : null];
+}
+function linksSection(){
+  return [
+    h("h3", { text:"Links" }),
+    ...linkRow("Team link (share with everyone)", teamLink(), "Bookmark the team link: it holds your star history and past retros."),
+    ...(isFac() ? linkRow("Facilitator link (keep private)", facLink(), "This one controls phases, names and the timer. Don't share it.") : [])
+  ];
+}
+function currentSummary(){
+  const avg = S.history.length ? S.history.reduce((a,b)=>a+b.v,0)/S.history.length : speed;
+  return {
+    id: S.id, ship: S.ship, star: S.star, starRock: S.starRock || null,
+    rockReturned: S.phase < 4 ? null : rockReturnedOf(), votes: tally(S.starVotes), outcome: S.phase < 4 && S.star ? "pending" : starOutcome(),
+    finalSpeed: +speed.toFixed(1), avgSpeed: +avg.toFixed(1),
+    counts: { wind: S.cards.filter(c=>c.type==="wind").length, rock: S.cards.filter(c=>c.type==="rock").length, barnacle: S.cards.filter(c=>c.type==="barnacle").length },
+    rocks: problems(S.cards).map(c => c.text),
+    participation: S.phase === 0 ? null : participationOf(),
+    actions: S.cards.filter(c => c.scraped).map(c => c.text),
+    startedAt: S.startedAt, endedAt: Date.now()
+  };
+}
+/* Rocks in the newest voyage that also showed up in each of the voyages right before it */
+function recurringRocks(rows){
+  const latest = rows[rows.length - 1];
+  if (!latest || !latest.rocks) return [];
+  const out = [];
+  for (const r of latest.rocks){
+    if (out.some(o => similar(o.text, r))) continue;
+    let streak = 1;
+    for (let i = rows.length - 2; i >= 0; i--){
+      if ((rows[i].rocks || []).some(x => similar(x, r))) streak++; else break;
+    }
+    if (streak >= 3) out.push({ text: r, streak });
+  }
+  return out;
+}
+function badge(outcome, inline){
+  const [label, tone] = STAR_OUT[outcome] || STAR_OUT.none;
+  return h("span", { class: `badge ${tone}${inline ? " inline" : ""}`, text: label });
+}
+function logbookSection(includeCurrent, noHeading){
+  const rows = [...team.sessions];
+  if (includeCurrent) rows.push({ ...currentSummary(), current: true });
+  if (!rows.length) return [h("h3", { text:"Logbook" }), h("p", { class:"muted", text:"No past voyages yet. They appear here after each Harbor." })];
+
+  const scored = rows.filter(r => SCORED.has(r.outcome));
+  const met = scored.filter(r => MET.has(r.outcome)).length;
+  const recurring = recurringRocks(rows);
+  const lastP = [...rows].reverse().find(r => r.participation && r.participation.present);
+  const speeds = rows.map(r => r.finalSpeed).filter(v => v != null);
+  const stat = (label, value, note, bad) => h("div", { class:"stat" }, h("span", { text: label }), h("b", { class: bad ? "bad" : null, text: value }), h("small", { text: note }));
+
+  return [
+    noHeading ? null : h("h3", { text:"Logbook" }),
+    h("div", { class:"stats" },
+      stat("Star hit rate", scored.length ? `${met} of ${scored.length}` : "—", "main score"),
+      stat("Recurring rocks", String(recurring.length), recurring.length ? recurring.map(r => `“${r.text}” ×${r.streak}`).join(", ") : "3+ retros in a row", recurring.length > 0),
+      stat("Participation", lastP ? `${lastP.participation.added} of ${lastP.participation.present}` : "—", "added a card"),
+      stat("Speed trend", speeds.length > 1 ? `${speeds[0].toFixed(1)} → ${speeds[speeds.length-1].toFixed(1)} kn` : speeds.length ? `${speeds[0].toFixed(1)} kn` : "—", "mood only, not scored")
+    ),
+    h("div", {}, rows.slice().reverse().map(r => {
+      const bits = [];
+      if (r.star) bits.push(h("span", { class:"s", text:`★ ${r.star}` }));
+      if (r.starRock) bits.push(`rock “${r.starRock}” ${r.rockReturned === true ? "came back" : r.rockReturned === false ? "did not come back" : r.outcome === "pending" ? "is checked at the Harbor" : "not checked"}`);
+      if (r.votes && (r.votes.yes || r.votes.no)) bits.push(`vote ${r.votes.yes} yes / ${r.votes.no} no`);
+      if (!bits.length) bits.push("No star this voyage");
+      const d = h("div", { class:"voy-d" });
+      bits.forEach((x, i) => { if (i) d.append(" · "); d.append(x); });
+      return h("div", { class:"voy" },
+        h("div", { class:"voy-h" },
+          h("b", { text: (r.ship || "Unnamed ship") + (r.current ? " (now)" : "") }),
+          h("span", { class:"kn", text: `${(r.finalSpeed ?? 0).toFixed(1)} kn` }),
+          badge(r.outcome)),
+        d);
+    }))
+  ];
+}
+function voteButtons(){
+  const mine = (S.starVotes || {})[me.id], t = tally(S.starVotes);
+  const b = (v, label) => h("button", { class:"btn small", type:"button", "aria-pressed": String(mine === v), text: label,
+    onclick: () => dispatch({ type:"starVote", pid: me.id, v: mine === v ? null : v }) });
+  return h("div", { class:"votebar" }, b("yes", "Yes, we hit it"), b("no", "No, not yet"), h("span", { class:"muted", text:`${t.yes} yes · ${t.no} no` }));
+}
+function starCheckSection(where){
+  if (!S.star) return [h("h3", { text:"Star check" }), h("p", { class:"muted", text:"No star to check this time." })];
+  const out = [h("h3", { text:"Star check" }), h("p", { class:"starline", text:`★ ${S.star}` })];
+  if (S.starRock){
+    out.push(h("p", { class:"muted" }, "Tied to the rock ", h("b", { text:`“${S.starRock}”` }), ". The star is met if that rock doesn't come back."));
+    if (where === "harbor"){
+      const m = rockMatches(), ret = rockReturnedOf();
+      out.push(m.length
+        ? h("div", {}, h("p", { class:"muted", text:"These cards look like the same rock:" }), h("ul", { class:"matches" }, m.map(c => h("li", { text: c.text }))))
+        : h("p", { class:"muted", text:"No matching rock or barnacle this retro." }));
+      if (isFac()){
+        out.push(h("div", { class:"votebar" },
+          h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === true), text:"It came back", onclick: () => dispatch({ type:"rockReturned", value: true }) }),
+          h("button", { class:"btn small", type:"button", "aria-pressed": String(ret === false), text:"It didn't come back", onclick: () => dispatch({ type:"rockReturned", value: false }) }),
+          h("span", { class:"muted", text: S.rockReturned == null ? "auto-detected, you can override" : "set by facilitator" })));
+      }
+    } else {
+      out.push(h("p", { class:"muted", text:"We'll see if it comes back once cards are in. Confirm at the Harbor." }));
+    }
+  } else {
+    out.push(h("p", { class:"muted", text:"No rock tied to this star, so the team vote decides." }));
+  }
+  out.push(h("p", { text:"Did we hit it? Everyone votes." }), voteButtons());
+  if (where === "harbor") out.push(h("p", {}, "Result: ", badge(starOutcome(), true)));
+  return out;
+}
+function nextStarSection(){
+  const out = [h("h3", { text:"Next star" })];
+  const ns = S.nextStar;
+  if (!isFac()){
+    out.push(ns && (ns.text || ns.rock)
+      ? h("p", {}, h("span", { class:"starline", text:`★ ${ns.text || "(not worded yet)"}` }), ns.rock ? h("span", { class:"muted", text:` · beats “${ns.rock}”` }) : null)
+      : h("p", { class:"muted", text:"The facilitator is picking the next star from today's rocks." }));
+    return out;
+  }
+  out.push(h("p", { class:"muted", text:"Pick the rock or barnacle you most want gone. Then write the star as what you'll see when it's gone." }));
+  const top = problems(S.cards).slice().sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 6);
+  if (top.length){
+    out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Rock for the next star" }, top.map(c => {
+      const on = ns && ns.rockId === c.id;
+      return h("button", { class:"btn small", type:"button", "aria-pressed": String(!!on),
+        onclick: () => dispatch({ type:"nextStar", rerender:true, nextStar: on ? { ...ns, rockId:null, rock:null } : { text: ns?.text || "", rockId: c.id, rock: c.text } }) },
+        h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
+    })));
+  } else {
+    out.push(h("p", { class:"muted", text:"No rocks this retro. You can still write a star; the team vote will decide next time." }));
+  }
+  const inp = h("input", { class:"textin", id:"nextStarIn", maxlength:80, placeholder:"PR reviews done within 24 hours", "aria-label":"Next star", value: ns?.text || "" });
+  let t = null;
+  inp.oninput = () => { clearTimeout(t); t = setTimeout(() => dispatch({ type:"nextStar", nextStar: { rockId: S.nextStar?.rockId || null, rock: S.nextStar?.rock || null, text: inp.value.trim() } }), 250); };
+  out.push(inp);
+  return out;
+}
+/* ================================================================
+   STAGE: each step has its own simple screen
+   Dock: facilitator plans minutes while the crew comes aboard
+   Sail: add cards (you only see your own)   Navigate: board, vote
+   Set course: top problems become action items   Harbor: wrap up
+   ================================================================ */
+const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
+const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
+const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
+const TYPES = [["wind","Wind","🌬"],["rock","Rock","🪨"],["barnacle","Barnacle","🐚"]];
+const TOP_N = 5;
+const stage = $("stage");
+const myCards = new Set();
+let builtPhase = null, composeType = "wind";
+
+function gotoPhase(p){ dispatch({ type:"phase", phase: p, startedAt: Date.now(), minutes: stepMin(p) }); }
+function goNext(){ if (S.phase < 4) gotoPhase(S.phase + 1); else nextRetro(); }
+
+function renderStage(force){
+  if (!S) return;
+  if (force || builtPhase !== S.phase){ buildStage(S.phase); builtPhase = S.phase; }
+  fillStage(S.phase);
+}
+function buildStage(p){
+  const fac = isFac();
+  stage.className = "st-" + PHASES[p].key;
+  stage.innerHTML = "";
+  const body = h("div", { class:"stage-body" });
+  if (p === 0 && fac) body.append(planEditor());
+  if (p === 1) body.append(composer());
+  body.append(h("div", { id:"stageDyn" }));
+  stage.append(
+    h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" })),
+    body,
+    h("div", { class:"stage-foot" },
+      fac && p > 0 ? h("button", { class:"btn small ghost", type:"button", text:"← Back", onclick: () => gotoPhase(p - 1) }) : null,
+      h("span", { class:"grow" }),
+      fac ? h("button", { class:"btn primary", type:"button", text: NEXT[p], onclick: goNext })
+          : h("span", { class:"waiting", text: p === 0 ? "Waiting to cast off" : "The facilitator moves everyone on" })));
+}
+function planEditor(){
+  const ship = h("input", { id:"shipName", maxlength:40, placeholder:"e.g. Sprint 24", value: S.ship || "", autocomplete:"off" });
+  ship.oninput = () => onShipInput(ship);
+  return h("div", { class:"plan" },
+    h("div", { class:"ship-row" }, h("label", { for:"shipName", text:"Ship name" }), ship),
+    h("h3", { text:"Minutes per step" }), h("div", { class:"plan-grid" }, [1,2,3,4].map(p => {
+    const key = STEP_MIN_KEYS[p], id = "min-" + p;
+    const inp = h("input", { type:"number", id, class:"min-in", min:1, max:60, step:1, value: C[key], "data-key": key });
+    inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; pushConfig(); };
+    return h("div", { class:"plan-row" }, h("label", { for:id, text: PHASES[p].name }), h("span", { class:"min-wrap" }, inp, " min"));
+  })));
+}
+function composer(){
+  const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name, ico]) => {
+    const inp = h("input", { type:"radio", name:"ctype", id:"ct-" + t, value: t });
+    inp.checked = composeType === t;
+    inp.onchange = () => { composeType = t; };
+    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico", text: ico }), name)];
+  }));
+  const text = h("input", { class:"text-in", id:"cardText", maxlength:200, placeholder:"What happened?", "aria-label":"Card text", autocomplete:"off" });
+  const anon = h("input", { type:"checkbox", id:"anon" });
+  const form = h("form", { class:"compose" }, seg,
+    h("div", { class:"compose-row" }, text, h("button", { class:"add-btn", type:"submit", text:"Add" })),
+    h("label", { class:"anon" }, anon, " Anonymous"));
+  form.onsubmit = e => {
+    e.preventDefault();
+    const v = text.value.trim(); if (!v || S.phase !== 1) return;
+    const card = makeCard(composeType, v, me.id, me.name, anon.checked);
+    myCards.add(card.id);
+    dispatch({ type:"card.add", by: me.id, card });
+    text.value = ""; text.focus();
+  };
+  return form;
+}
+function fillStage(p){
+  const dyn = $("stageDyn"); if (!dyn) return;
+  const act = document.activeElement, fk = act && stage.contains(act) ? act.dataset.fk : null;
+  const body = stage.querySelector(".stage-body"), st = body.scrollTop;
+  dyn.className = p === 2 ? "board" : p === 3 ? "course" : "";
+  dyn.replaceChildren(...stageContent(p).filter(Boolean));
+  body.scrollTop = st;
+  if (fk){ const e = stage.querySelector(`[data-fk="${fk}"]`); if (e && !e.disabled) e.focus(); }
+  $("stageStat").textContent = stageStat(p);
+  stage.querySelectorAll(".min-in").forEach(i => { if (i !== document.activeElement) i.value = C[i.dataset.key]; });
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+function stageStat(p){
+  if (p === 0) return `${people().length} aboard`;
+  if (p === 1) return plural(S.cards.length, "card");
+  if (p === 2) return `${plural(C.VOTES_PER_PERSON - personVotesUsed(me.id), "vote")} left`;
+  if (p === 3) return plural(S.cards.filter(c => c.scraped).length, "action item");
+  return "";
+}
+function stageContent(p){
+  if (p === 0) return [h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+    h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
+  if (p === 1){
+    const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
+    return mine.length ? [h("ul", { class:"mine", "aria-label":"Your cards" }, mine.map(c => h("li", { class:"chip", style:`--c:var(--${c.type})`, text: c.text })))] : [];
+  }
+  if (p === 2) return TYPES.map(([t, name]) => {
+    const cards = S.cards.filter(c => c.type === t);
+    return h("section", {}, h("h3", { class:"col-h" }, h("span", { class:"dot", style:`background:var(--${t})` }), name, h("span", { class:"count-pill", text: cards.length })),
+      h("ul", { class:"cards" }, cards.map(c => tile(c, "vote"))));
+  });
+  const acts = S.cards.filter(c => c.scraped);
+  const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
+  if (p === 3){
+    const top = problems(S.cards).filter(c => !c.scraped).sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, TOP_N);
+    return [
+      h("section", {}, h("h3", { class:"col-h", text:"Top problems" }), top.length ? h("ul", { class:"cards" }, top.map(c => tile(c, "course"))) : h("p", { class:"muted", text:"None left" })),
+      h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
+    ];
+  }
+  return [h("h3", { class:"col-h", text:"★ Action items" }), actList];
+}
+function tile(c, mode){
+  const li = h("li", { class:"card", style:`--c:var(--${c.type})` }, h("p", { text: c.text }));
+  if (!mode) return li;
+  const total = totalVotes(c), mine = c.votes[me.id] || 0;
+  const meta = h("div", { class:"meta" }, h("span", { class:"author" }));
+  if (mode === "vote"){
+    meta.append(h("div", { class:"vote" },
+      h("button", { type:"button", "data-fk":"m" + c.id, "aria-label":`Remove my vote: ${c.text}`, text:"−", disabled: !mine, onclick: () => myVote(c.id, -1) }),
+      h("span", { class:"n", text: mine ? `${total} · ${mine} mine` : String(total) }),
+      h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
+  } else {
+    meta.append(h("span", { text: plural(total, "vote") }));
+    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", text:"★ Action item", onclick: () => dispatch({ type:"scrape", cardId: c.id }) }));
+  }
+  li.append(meta);
+  return li;
+}
+
+/* Step timer: counts down, then keeps counting as overtime. Nothing moves on by itself. */
+let timerText = "";
+function tickTimer(){
+  const el = $("timer"), m = S.phaseMinutes || 0;
+  if (!m || !S.phaseStartedAt){ if (!el.hidden){ el.hidden = true; timerText = ""; } return; }
+  const left = Math.round((S.phaseStartedAt + m * 60000 - Date.now()) / 1000), a = Math.abs(left);
+  const txt = `${Math.floor(a/60)}:${String(a%60).padStart(2,"0")}` + (left < 0 ? " over" : "");
+  if (txt === timerText) return;
+  timerText = txt; el.textContent = left < 0 ? "+" + txt : txt;
+  el.classList.toggle("over", left < 0); el.title = `${m} min planned`; el.hidden = false;
+}
+
+/* Modal: logbook and links (opened from the header) */
+function renderCenter(){ renderStage(); renderModal(); }
+function renderModal(){
+  const box = $("center"), body = $("centerBody");
+  if (!centerMode){ box.hidden = true; return; }
+  body.innerHTML = "";
+  if (centerMode === "logbook"){
+    body.append(...[h("h2", { id:"centerTitle", text:"📖 Logbook" }), h("p", { class:"muted", text: team.name }), ...logbookSection(true, true)].filter(Boolean));
+  } else if (centerMode === "links"){
+    body.append(h("h2", { id:"centerTitle", text:"Share this retro" }), ...linksSection());
+  }
+  box.hidden = false;
+}
+$("centerClose").onclick = () => { centerMode = null; renderModal(); };
+
+function nextShipName(name){
+  if (!name) return "";
+  return name.replace(/\d+/, n => String(+n + 1));
+}
+function nextRetro(){
+  const summary = currentSummary();
+  const ns = S.nextStar || {};
+  const star = ns.text || (ns.rock ? `“${ns.rock}” stays gone` : "");
+  const session = newSession({ ship: nextShipName(S.ship), star, starRock: ns.rock || null });
+  dispatch({ type:"session.next", sessions: [...team.sessions, summary], session });
+}
+
+/* ================================================================
+   Simulation (fake data, facilitator only)
+   ================================================================ */
+const TEXTS = {
+  wind: ["Pairing on the auth refactor","Demo went smoothly","Clear sprint goal","Fast code reviews","New CI cache cut build time","Great support from design","Shipped search filters early","Docs finally up to date","Standups stayed short","Good test coverage on payments"],
+  rock: ["Prod outage on Tuesday","Requirements changed mid-sprint","Staging was down 2 days","Blocked on API keys from vendor","Release slipped","Flaky e2e tests blocked merges"],
+  barnacle: ["PR descriptions too thin","Too many meetings Thursday","Tickets missing acceptance criteria","Slow feedback from QA","Forgot to update the board","Onboarding doc is stale","Retro actions not followed up","Estimates were optimistic"]
+};
+let simTimer = null;
+function ensureSims(n){
+  while (sims.length < n){
+    const i = sims.length;
+    sims.push({ id: "sim" + i, name: NAMES[i % NAMES.length] + (i >= NAMES.length ? " " + (1 + Math.floor(i/NAMES.length)) : ""), color: COLORS[i % COLORS.length] });
+  }
+  sims.length = Math.min(sims.length, n);
+  renderAvatars(); hello();
+}
+function makeCard(type, text, author, authorName, anonymous){
+  return { id: rid(9), type, text, author: anonymous ? null : author, authorName: anonymous ? null : authorName, anonymous, votes:{}, scraped:false, created: Date.now() };
+}
+function simStep(){
+  if (!sims.length) return;
+  const p = pick(sims);
+  if (S.phase === 0 && S.star){
+    if (!(S.starVotes || {})[p.id]) dispatch({ type:"starVote", pid: p.id, v: Math.random() < .7 ? "yes" : "no" });
+  } else if (S.phase === 1){
+    const r = Math.random(), type = r < .45 ? "wind" : r < .65 ? "rock" : "barnacle";
+    dispatch({ type:"card.add", by: p.id, card: makeCard(type, pick(TEXTS[type]), p.id, p.name, Math.random() < C.SIM_ANON_RATE) });
+  } else if (S.phase === 2 && S.cards.length){
+    const c = pick(S.cards), delta = Math.random() < .1 ? -1 : 1;
+    if (canVote(c, p.id, delta)) dispatch({ type:"vote", cardId: c.id, pid: p.id, delta });
+  }
+}
+function scheduleSim(){
+  const base = 60000 / C.SIM_ACTIONS_PER_MIN;
+  simTimer = setTimeout(() => { simStep(); scheduleSim(); }, base * (.3 + Math.random()*1.4));
+}
+function toggleSim(){
+  const on = !simTimer;
+  $("simBtn").setAttribute("aria-pressed", on);
+  $("simBtn").textContent = on ? "Stop simulation" : "Simulate team";
+  if (on){ ensureSims(C.SIM_PEOPLE); scheduleSim(); if (S.phase === 0) plainToast(S.star ? "Simulated people vote on the star now, add cards in Sail and vote in Navigate" : "Simulated people add cards in Sail and vote in Navigate"); }
+  else { clearTimeout(simTimer); simTimer = null; ensureSims(0); }
+}
+function loadExample(){
+  ensureSims(Math.max(sims.length, 8));
+  const cards = [];
+  const add = (type, text, votes) => { const p = pick(sims); const c = makeCard(type, text, p.id, p.name, false); for (let i=0;i<votes;i++){ const v = sims[i % sims.length].id; c.votes[v] = (c.votes[v]||0) + 1; } cards.push(c); };
+  TEXTS.wind.slice(0,6).forEach((t,i) => add("wind", t, i < 2 ? 2 : 0));
+  add("rock", TEXTS.rock[0], 3);
+  TEXTS.barnacle.slice(0,4).forEach(t => add("barnacle", t, 0));
+  dispatch({ type:"cards.replace", cards });
+}
+
+/* ================================================================
+   Tune panel (facilitator) — changes are shared with the room
+   ================================================================ */
+let cfgT = null;
+function pushConfig(){ clearTimeout(cfgT); cfgT = setTimeout(() => dispatch({ type:"config", config: {...C} }), 150); }
+function renderParams(){
+  const box = $("params"); box.innerHTML = "";
+  for (const row of PARAMS){
+    if (row.length === 1){ box.appendChild(h("h3", { class:"group-h", text: row[0] })); continue; }
+    const [key, label, min, max, step, help] = row;
+    const id = "p-" + key;
+    if (min === "bool"){
+      const cb = h("input", { type:"checkbox", id });
+      cb.checked = !!C[key];
+      cb.onchange = () => { C[key] = cb.checked; applySpeedoVisibility(); pushConfig(); };
+      box.appendChild(h("div", { class:"param check" }, h("label", { for:id, text:label }), cb, help ? h("small", { text:help }) : null));
+    } else {
+      const num = h("input", { type:"number", "aria-label":`${label} value`, min, max, step });
+      const range = h("input", { type:"range", id, min, max, step });
+      num.value = range.value = C[key];
+      const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); renderStage(); renderBarnacles(); pushConfig(); };
+      range.oninput = () => set(range.value);
+      num.onchange = () => set(num.value);
+      box.appendChild(h("div", { class:"param" }, h("label", { for:id, text:label }), num, range, help ? h("small", { text:help }) : null));
+    }
+  }
+}
+function renderReadout(){
+  const m = model;
+  $("readout").innerHTML =
+    `wind weight W = <b>${m.W.toFixed(2)}</b><br>` +
+    `thrust = min(${C.MAX_THRUST}, ${C.WIND_GAIN}·ln(1+W)) = <b>+${m.thrust.toFixed(2)}</b><br>` +
+    `rocks <b>−${m.rock.toFixed(2)}</b> · barnacles <b>−${m.barn.toFixed(2)}</b><br>` +
+    `target = ${C.BASE_DRIFT} + thrust − drag = <b>${m.target.toFixed(2)} kn</b>`;
+}
+function configAsTs(){
+  const groups = { speed:["VOTE_FACTOR","WIND_GAIN","MAX_THRUST","ROCK_BASE","BARNACLE_BASE","SCRAPED_FACTOR","BASE_DRIFT","MAX_SPEED","TAU","MAX_ACCEL"],
+    retro:["VOTES_PER_PERSON","MAX_VOTES_PER_CARD","SILENT_TIMER_MIN","SHOW_SPEEDOMETER","SAIL_MIN","NAV_MIN","COURSE_MIN","HARBOR_MIN"],
+    scene:["SCENE_SPEED_SCALE","MAX_EFFECTS","MAX_BARNACLE_SPRITES","TOAST_MERGE_MS","HISTORY_MINUTES"] };
+  return "// config/retro.ts\n" + Object.entries(groups).map(([g, keys]) =>
+    `export const ${g.toUpperCase()} = {\n` + keys.map(k => `  ${k}: ${JSON.stringify(C[k])},`).join("\n") + "\n} as const;").join("\n\n") + "\n";
+}
+function applySpeedoVisibility(){
+  $("speedo").classList.toggle("hidden", !C.SHOW_SPEEDOMETER);
+  $("speedHidden").hidden = !!C.SHOW_SPEEDOMETER;
+}
+
+/* ================================================================
+   Silent writing timer (synced)
+   ================================================================ */
+let silentInterval = null;
+function syncSilent(){
+  clearInterval(silentInterval);
+  if (silentActive()){ silentInterval = setInterval(tickSilent, 250); tickSilent(); $("silentBtn").textContent = "End silent writing"; }
+  else { $("silentChip").hidden = true; $("silentBtn").textContent = "Start silent writing"; }
+}
+function tickSilent(){
+  const left = (S.silentUntil || 0) - Date.now();
+  if (left <= 0){ syncSilent(); renderStage(); announce("Silent writing ended. Names are now visible."); return; }
+  const s = Math.ceil(left/1000);
+  $("silentChip").hidden = false;
+  $("silentChip").textContent = `🤫 Silent writing ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+}
+
+/* ================================================================
+   Main loop (60fps, writes attributes directly)
+   ================================================================ */
+let last = performance.now(), t = 0, sink = 0, fill = 0, lastSample = 0, nsScale = .7, sampleN = 0;
+const boatWrap = $("boatWrap"), mainsail = $("mainsail"), jib = $("jib"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
+const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick"), northStar = $("northStar"), nsGlow = $("nsGlow");
+
+function frame(now){
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (!reduced) t += dt;
+  speed = stepSpeed(speed, model.target, dt);
+
+  gustBoost = Math.max(0, gustBoost - dt * .7);
+  jolt = Math.max(0, jolt - dt * 1.4);
+  sinkKick = Math.max(0, sinkKick - dt * 1.2);
+
+  if (!reduced){
+    for (const w of WAVES){
+      w.off = (w.off + (speed * C.SCENE_SPEED_SCALE + 10) * w.k * dt) % w.len;
+      w.el.setAttribute("transform", `translate(${-w.off},${Math.sin(t*1.1 + w.k*3) * w.amp * .25})`);
+    }
+    for (const c of clouds){
+      c.x -= (speed * C.SCENE_SPEED_SCALE * .12 + 3) * c.k * dt;
+      if (c.x < -200) c.x = 1750;
+      c.g.setAttribute("transform", `translate(${c.x},${c.y})`);
+    }
+  }
+
+  // The star on the horizon grows as the voyage moves through the phases
+  const nsTarget = S.star ? .7 + S.phase * .14 : .55;
+  nsScale += (nsTarget - nsScale) * (1 - Math.exp(-dt / .8));
+  const pulse = reduced ? 1 : 1 + Math.sin(t * 1.6) * .04;
+  northStar.setAttribute("transform", `scale(${(nsScale * pulse).toFixed(3)})`);
+  northStar.setAttribute("opacity", S.star ? 1 : .35);
+  nsGlow.setAttribute("opacity", S.star ? .9 : 0);
+
+  const dragTarget = Math.min(38, model.rock * 2.6 + model.barn * 1.6);
+  sink += (dragTarget - sink) * (1 - Math.exp(-dt / .8));
+  const bob = reduced ? 0 : Math.sin(t * 1.4) * 5;
+  const tilt = (reduced ? 0 : Math.sin(t * .9) * 1.6) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, speed * .25);
+  boatWrap.setAttribute("transform", `translate(800,${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
+
+  const fillTarget = clamp(model.thrust / Math.max(1, C.MAX_THRUST), 0, 1) * .85 + gustBoost * .35;
+  fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
+  const b = 20 + fill * 70;
+  mainsail.setAttribute("d", `M-4,-250 L-4,-30 L-142,-30 Q${-71 - b},${-130 - b*.4} -4,-250 Z`);
+  jib.setAttribute("d", `M6,-240 L168,-16 L12,-22 Q${60 + b*.7},${-110 - b*.2} 6,-240 Z`);
+  const fl = reduced ? 0 : Math.sin(t * (4 + speed)) * (3 + speed * .5);
+  flag.setAttribute("d", `M0,-262 Q-22,${-262 + fl} -44,-256 L-40,-246 Q-20,${-246 + fl} 0,-244 Z`);
+
+  const L = 30 + speed * 34;
+  const wy = 46 + (reduced ? 0 : Math.sin(t*3) * 2);
+  wake.setAttribute("d", `M-150,${wy} q${-L/2},${8} ${-L},${4}`);
+  wake2.setAttribute("d", `M-140,${wy+10} q${-L*.35},${10} ${-L*.7},${12}`);
+  wake.setAttribute("opacity", .2 + Math.min(.5, speed / 20));
+
+  for (let i = anims.length - 1; i >= 0; i--){
+    const a = anims[i], p = Math.min(1, (now - a.t0) / a.dur);
+    a.update(p);
+    if (p >= 1){ anims.splice(i,1); a.done && a.done(); }
+  }
+
+  if (C.SHOW_SPEEDOMETER){
+    const f = clamp(speed / C.MAX_SPEED, 0, 1), ft = clamp(model.target / C.MAX_SPEED, 0, 1);
+    needle.setAttribute("transform", `rotate(${-90 + f*180} 50 52)`);
+    targetTick.setAttribute("transform", `rotate(${-90 + ft*180} 50 52) translate(0,-2)`);
+    gaugeArc.setAttribute("stroke-dasharray", `${f*100} 100`);
+    $("knots").textContent = speed.toFixed(1);
+    $("band").textContent = speed < 1 ? "Becalmed" : speed < 4 ? "Drifting" : speed < 8 ? "Steady sailing" : speed < 11 ? "Good breeze" : "Cruising";
+  }
+  if (now - lastSample > 1000){ lastSample = now; sample(); }
+  tickTimer();
+  requestAnimationFrame(frame);
+}
+function sample(){
+  history.push({ t: Date.now(), v: speed });
+  const cutoff = Date.now() - C.HISTORY_MINUTES * 60000;
+  while (history.length && history[0].t < cutoff) history.shift();
+  // Facilitator writes the session's speed history (one writer, every 5 s)
+  if (isFac() && S.phase > 0 && S.phase < 4 && ++sampleN % 5 === 0){
+    S.history.push({ t: Date.now(), v: +speed.toFixed(2) });
+    if (S.history.length > 3000) S.history.shift();
+    persist();
+  }
+  if (!C.SHOW_SPEEDOMETER || history.length < 2) return;
+  const t0 = history[0].t, span = Math.max(30000, Date.now() - t0);
+  $("spark").setAttribute("points", history.map(p => `${((p.t - t0)/span*138 + 1).toFixed(1)},${(42 - clamp(p.v / C.MAX_SPEED, 0, 1) * 40).toFixed(1)}`).join(" "));
+}
+
+/* ================================================================
+   Routing, team creation, join
+   #/t/<teamId>        participant (team link)
+   #/f/<facilitatorKey> facilitator link (only its hash is stored)
+   ================================================================ */
+function showLanding(msg){
+  $("landing").hidden = false;
+  $("landingMsg").hidden = !msg; $("landingMsg").textContent = msg || "";
+  const lastHash = sget("rtw-last");
+  $("continueBtn").hidden = !lastHash || lastHash === location.hash;
+  $("continueBtn").onclick = () => { location.hash = lastHash; };
+  setTimeout(() => $("teamName").focus(), 50);
+}
+$("createForm").onsubmit = async e => {
+  e.preventDefault();
+  const id = rid(16), key = rid(24);
+  const fkHash = await sha(key);
+  const t = { id, name: $("teamName").value.trim() || "Our team", created: Date.now(), fkHash, config: {...DEFAULTS}, sessions: [], current: newSession({}) };
+  sset("rtw-team-" + id, t);
+  sset("rtw-fk-" + fkHash, id);
+  location.hash = "#/f/" + key;
+};
+addEventListener("hashchange", () => location.reload());
+
+function askName(){
+  return new Promise(resolve => {
+    $("nameDlg").hidden = false;
+    $("nameIn").value = sget("rtw-name") || "";
+    setTimeout(() => $("nameIn").focus(), 50);
+    $("nameForm").onsubmit = e => {
+      e.preventDefault();
+      const n = $("nameIn").value.trim(); if (!n) return;
+      sset("rtw-name", n); $("nameDlg").hidden = true; resolve(n);
+    };
+  });
+}
+
+async function init(){
+  me.id = sget("rtw-pid", true) || rid(9);
+  sset("rtw-pid", me.id, true);
+  let m;
+  if ((m = location.hash.match(/^#\/t\/([\w-]{16,})$/))){
+    team = sget("rtw-team-" + m[1]);
+    if (!team) return showLanding("This team link isn't stored in this browser. (In the live version it loads from the server.)");
+    role = "participant";
+  } else if ((m = location.hash.match(/^#\/f\/([\w-]{16,})$/))){
+    const tid = sget("rtw-fk-" + await sha(m[1]));
+    team = tid && sget("rtw-team-" + tid);
+    if (!team) return showLanding("This facilitator link isn't recognised in this browser.");
+    role = "facilitator"; fkey = m[1];
+  } else {
+    return showLanding();
+  }
+  sset("rtw-last", location.hash);
+  S = team.current;
+  C = {...DEFAULTS, ...(team.config || {})};
+  me.name = sget("rtw-name") || "";
+  if (!me.name) me.name = await askName();
+  me.color = COLORS[[...me.id].reduce((a,ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
+  start();
+}
+
+function rebuildAll(){
+  recompute(); renderBarnacles(); renderStars(); renderTitle(); renderPhase(); renderStage(true); renderModal(); syncSilent(); applySpeedoVisibility(); renderParams();
+}
+function start(){
+  document.body.classList.toggle("is-fac", isFac());
+  $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
+  document.title = `${S.ship || team.name} · RetroTailWind`;
+  try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
+  layoutConstellation();
+  rebuildAll(); renderAvatars();
+  speed = model.target;
+  hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
+  addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
+  requestAnimationFrame(frame);
+}
+
+/* ================================================================
+   Wiring
+   ================================================================ */
+function setPanel(id, open){
+  $(id).classList.toggle("closed", !open);
+  $("tuneToggle").setAttribute("aria-expanded", open);
+}
+const togglePanel = id => setPanel(id, $(id).classList.contains("closed"));
+$("tuneToggle").onclick = () => togglePanel("tunePanel");
+$("closeTune").onclick = () => setPanel("tunePanel", false);
+$("mTune").onclick = () => togglePanel("tunePanel");
+const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
+$("logBtn").onclick = openLog; $("mLog").onclick = openLog;
+$("copyLink").onclick = async () => {
+  if (await copy(teamLink(), $("copyLink"))) plainToast("Team link copied. Bookmark it to keep your star history.");
+  else { centerMode = "links"; renderModal(); }
+};
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  setPanel("tunePanel", false);
+  if (!$("center").hidden) $("centerClose").click();
+});
+
+
+$("simBtn").onclick = toggleSim;
+$("silentBtn").onclick = () => dispatch({ type:"silent", until: silentActive() ? 0 : Date.now() + C.SILENT_TIMER_MIN * 60000 });
+$("exampleBtn").onclick = loadExample;
+$("clearBtn").onclick = () => dispatch({ type:"cards.replace", cards: [] });
+$("resetCfg").onclick = () => { C = {...DEFAULTS}; renderParams(); recompute(); renderStage(); applySpeedoVisibility(); pushConfig(); };
+$("copyCfg").onclick = () => copy(configAsTs(), $("copyCfg"));
+addEventListener("resize", () => team && renderAvatars());
+
+init();
+</script>
+</body>
+</html>
+
+</body></html>
