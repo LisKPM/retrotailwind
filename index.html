@@ -77,7 +77,15 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 #avatars{display:flex;align-items:center}
 .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
   color:#0d1a2e;border:2px solid #0e1b30;margin-left:-4px;font-size:13px}
-.av.more{background:#2a3d5c;color:var(--ui-text)}
+.av.more{background:#2a3d5c;color:var(--ui-text);cursor:pointer;font:inherit;font-size:12px;font-weight:700;padding:0;width:auto;min-width:28px;border-radius:14px;padding:0 6px}
+.av.more:hover,.av.more[aria-expanded=true]{background:#3a5280}
+#avatars{position:relative}
+#crewList{position:absolute;top:calc(100% + 8px);right:0;z-index:40;min-width:200px;max-height:60vh;overflow:auto;background:#101c33;
+  border:1px solid var(--ui-line);border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#crewList h3{margin:2px 6px 6px;font-size:12px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
+#crewList ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+#crewList li{display:flex;align-items:center;gap:9px;padding:5px 6px;border-radius:8px;font-size:14px}
+#crewList li .av{margin:0;width:24px;height:24px;font-size:11px;flex:none}
 .btn{background:rgba(255,255,255,.1);border:1px solid var(--ui-line);border-radius:10px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .btn:hover{background:rgba(255,255,255,.18)}
 .btn[aria-pressed="true"],.btn.on{background:rgba(127,214,194,.25);border-color:rgba(127,214,194,.6)}
@@ -228,6 +236,22 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 .param input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--wind)}
 .param input[type=number]{width:64px;padding:3px 5px;border-radius:7px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);text-align:right}
 .param small{grid-column:1/-1;color:var(--ui-muted);font-size:12px}
+.param .lbl{display:flex;align-items:center;gap:6px}
+/* ⓘ hover tips in Tune (Lis, 2026-11-18) */
+.tip{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--ui-muted);
+  color:var(--ui-muted);font:600 10.5px/1 system-ui,sans-serif;font-style:italic;cursor:help;flex:none}
+.tip:hover,.tip:focus-visible{color:var(--ui-text);border-color:var(--ui-text)}
+.tip::after,[data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;width:230px;padding:8px 10px;border-radius:9px;
+  background:#0a1426;border:1px solid var(--ui-line);color:var(--ui-text);font:400 12.5px/1.45 system-ui,sans-serif;font-style:normal;
+  white-space:normal;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .12s}
+[data-tip]{position:relative}
+[data-tip]::after{top:calc(100% + 6px);left:0}
+/* a setting's tip spans the whole row under its label, so it never runs off the panel */
+.param{position:relative}
+.param .tip{position:static}
+.param .tip::after{top:40px;left:0;right:0;width:auto}
+.tune-actions [data-tip]:nth-child(even)::after{left:auto;right:0}
+.tip:hover::after,.tip:focus-visible::after,[data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;transition-delay:.25s}
 .param.check{grid-template-columns:1fr auto}
 .tune-actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0}
 .group-h{font-size:13px;margin:14px 2px 2px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.6px}
@@ -511,14 +535,14 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   </div>
   <div class="panel-body">
     <div class="tune-actions">
-      <button class="btn small" id="simBtn" aria-pressed="false">Simulate team</button>
-      <button class="btn small" id="silentBtn">Start silent writing</button>
-      <button class="btn small" id="exampleBtn">Load example cards</button>
-      <button class="btn small" id="clearBtn">Clear cards</button>
+      <button class="btn small" id="simBtn" aria-pressed="false" data-tip="Adds fake people who write cards and vote, so you can try the app alone. Press again to stop.">Simulate team</button>
+      <button class="btn small" id="silentBtn" data-tip="Starts the silent writing timer for everyone. Names on new cards stay hidden until it ends.">Start silent writing</button>
+      <button class="btn small" id="exampleBtn" data-tip="Fills the board with sample cards for a demo. Replaces the cards already there.">Load example cards</button>
+      <button class="btn small" id="clearBtn" data-tip="Removes every card in this retro, for everyone. It can't be undone.">Clear cards</button>
     </div>
     <div id="params"></div>
     <div class="tune-actions">
-      <button class="btn small" id="resetCfg">Reset to defaults</button>
+      <button class="btn small" id="resetCfg" data-tip="Puts every Tune setting back to the standard values.">Reset to defaults</button>
     </div>
   </div>
 </aside>
@@ -688,15 +712,15 @@ const DEFAULTS = {
    formulas are locked in DEFAULTS so knots mean the same in every team and sprint. */
 const PARAMS = [
   ["Retro rules"],
-  ["VOTES_PER_PERSON","Votes per person",1,20,1,""],
-  ["MAX_VOTES_PER_CARD","Max votes per card (per person)",1,10,1,""],
-  ["SILENT_TIMER_MIN","Silent writing (min)",.5,15,.5,"Names hidden until it ends"],
-  ["SHOW_SPEEDOMETER","Show speedometer","bool",0,0,"Hide so speed isn't a team score"],
+  ["VOTES_PER_PERSON","Votes per person",1,20,1,"How many votes each person gets in Navigate. 3 to 5 suits most teams. Fewer votes force sharper choices."],
+  ["MAX_VOTES_PER_CARD","Max votes per card (per person)",1,10,1,"How many of their votes one person may put on one card. 1 spreads votes out. 3 lets people stack votes on what matters most."],
+  ["SILENT_TIMER_MIN","Silent writing (min)",.5,15,.5,"Length of the silent writing timer in Sail. Names on new cards stay hidden until it ends, so quieter people write without pressure. 3 to 5 minutes is typical."],
+  ["SHOW_SPEEDOMETER","Show speedometer","bool",0,0,"Untick to hide the speedometer for everyone, for example with a new team that might read it as a score. Speed is still saved in the Logbook."],
   ["Demo (fake data)"],
-  ["SIM_PEOPLE","Simulated people",1,40,1,""],
-  ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Cards in Sail, votes in Navigate, owners in Set course"],
-  ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,""],
-  ["SIM_QUIET_RATE","Quiet people",0,1,.05,"Share who add no cards and few votes"],
+  ["SIM_PEOPLE","Simulated people",1,40,1,"Demo only. How many fake people join when you press Simulate team."],
+  ["SIM_ACTIONS_PER_MIN","Actions per minute",5,300,5,"Demo only. How fast the fake people add cards, vote and own actions. Higher makes a busier demo."],
+  ["SIM_ANON_RATE","Anonymous card rate",0,1,.05,"Demo only. Share of fake cards posted anonymously. 0.15 is about 1 in 7."],
+  ["SIM_QUIET_RATE","Quiet people",0,1,.05,"Demo only. Share of fake people who add no cards and few votes, to see how speed reacts to a quiet crew."],
 ];
 /* Settings a team may change: the Tune rows plus the step minutes set at the Dock */
 const TUNABLE = new Set([...PARAMS.filter(r => r.length > 1).map(r => r[0]), "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"]);
@@ -1615,6 +1639,9 @@ function fade(d){ d.style.opacity = 0; setTimeout(() => d.remove(), 400); }
 let announceT = 0;
 function announce(msg){ const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
 
+let crewOpen = false;
+document.addEventListener("click", e => { if (crewOpen && !e.target.closest("#crewList")){ crewOpen = false; renderAvatars(); } });
+document.addEventListener("keydown", e => { if (crewOpen && e.key === "Escape"){ crewOpen = false; renderAvatars(); } });
 function renderAvatars(){
   const box = $("avatars"); box.innerHTML = "";
   const all = people();
@@ -1622,7 +1649,17 @@ function renderAvatars(){
   all.slice(0, max).forEach(p => {
     box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,1).toUpperCase() }));
   });
-  if (all.length > max) box.appendChild(h("div", { class:"av more", text:`+${all.length - max}` }));
+  if (all.length > max){
+    // "+N" opens the full crew list (names only, never who has written or voted)
+    const more = h("button", { type:"button", class:"av more", text:`+${all.length - max}`, "aria-expanded": String(crewOpen),
+      "aria-controls":"crewList", title:"Show everyone in the crew" });
+    more.onclick = e => { e.stopPropagation(); crewOpen = !crewOpen; renderAvatars(); };
+    box.appendChild(more);
+  } else crewOpen = false;
+  if (crewOpen) box.appendChild(h("div", { id:"crewList", role:"dialog", "aria-label":"Crew" },
+    h("h3", { text:`Crew · ${all.length}` }),
+    h("ul", {}, all.map(p => h("li", {}, h("span", { class:"av", style:`background:${p.color}`, text:(p.name || "?").slice(0,1).toUpperCase() }),
+      h("span", { text: p.id === me.id ? `${p.name} (you)` : p.name }))))));
   if (S && S.phase === 0) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
   if (S) recompute(); // speed depends on how many people are present
@@ -2320,6 +2357,8 @@ function loadExample(){
    ================================================================ */
 let cfgT = null;
 function pushConfig(){ clearTimeout(cfgT); cfgT = setTimeout(() => dispatch({ type:"config", config: {...C} }), 150); }
+const labelWithTip = (id, label, help) => h("span", { class:"lbl" }, h("label", { for:id, text:label }),
+  help ? h("span", { class:"tip", tabindex:"0", role:"note", "aria-label":help, "data-tip":help, text:"i" }) : null);
 function renderParams(){
   const box = $("params"); box.innerHTML = "";
   for (const row of PARAMS){
@@ -2330,7 +2369,7 @@ function renderParams(){
       const cb = h("input", { type:"checkbox", id });
       cb.checked = !!C[key];
       cb.onchange = () => { C[key] = cb.checked; applySpeedoVisibility(); pushConfig(); };
-      box.appendChild(h("div", { class:"param check" }, h("label", { for:id, text:label }), cb, help ? h("small", { text:help }) : null));
+      box.appendChild(h("div", { class:"param check" }, labelWithTip(id, label, help), cb));
     } else {
       const num = h("input", { type:"number", "aria-label":`${label} value`, min, max, step });
       const range = h("input", { type:"range", id, min, max, step });
@@ -2338,7 +2377,7 @@ function renderParams(){
       const set = v => { v = clamp(+v, min, max); if (Number.isNaN(v)) return; C[key] = v; num.value = range.value = v; recompute(); renderStage(); renderBarnacles(); renderRocks(); pushConfig(); };
       range.oninput = () => set(range.value);
       num.onchange = () => set(num.value);
-      box.appendChild(h("div", { class:"param" }, h("label", { for:id, text:label }), num, range, help ? h("small", { text:help }) : null));
+      box.appendChild(h("div", { class:"param" }, labelWithTip(id, label, help), num, range));
     }
   }
 }
