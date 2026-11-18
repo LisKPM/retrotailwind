@@ -648,7 +648,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <p class="act-for"><span class="dot" id="actDot"></span><span>For: <b id="actProblem"></b></span></p>
     <label>What will we do?
       <textarea class="text-in" id="actText" rows="2" maxlength="140" required placeholder="e.g. Add a staging health check before every release"></textarea></label>
-    <label>Owner <select class="text-in" id="actOwner"></select></label>
+    <label>Owner <input class="text-in" id="actOwner" list="actOwners" maxlength="40" autocomplete="off" placeholder="Type a name, or leave empty for no owner yet"></label>
+    <datalist id="actOwners"></datalist>
     <p class="muted" style="margin:0">Agree on it together with the team. An action with an owner melts the iceberg.</p>
     <div class="center-actions" style="margin-top:2px">
       <button type="button" class="btn ghost" id="actRemove">Remove action</button>
@@ -2183,7 +2184,8 @@ function openActionDlg(c){
   $("actText").value = c.action || "";
   const names = [...new Set(people().map(x => x.name).filter(Boolean))];
   if (c.owner && !names.includes(c.owner)) names.push(c.owner);
-  $("actOwner").replaceChildren(h("option", { value:"", text:"No owner yet" }), ...names.map(n => h("option", { value:n, text:n })));
+  // Owner is typed: the crew in the room are suggested, any other name is fine too
+  $("actOwners").replaceChildren(...names.map(n => h("option", { value:n })));
   $("actOwner").value = c.owner || "";
   $("actRemove").hidden = !c.scraped;
   $("actDlg").hidden = false; $("actText").focus();
@@ -2197,7 +2199,7 @@ function closeActionDlg(){
 $("actForm").onsubmit = e => {
   e.preventDefault();
   const text = $("actText").value.trim(); if (!text || !actCard) return;
-  dispatch({ type:"action.set", cardId: actCard, text, owner: $("actOwner").value || null });
+  dispatch({ type:"action.set", cardId: actCard, text, owner: $("actOwner").value.trim().replace(/\s+/g, " ") || null });
   closeActionDlg();
 };
 $("actCancel").onclick = closeActionDlg;
