@@ -244,6 +244,12 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 #speedHidden{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:13px;color:var(--ui-muted);
   background:var(--ui-bg);padding:6px 8px 6px 12px;border-radius:99px;z-index:12;display:flex;align-items:center;gap:8px}
 .sea-word{color:var(--ui-text);font-weight:600}
+:root{--zone-red:#e5675a;--zone-yellow:#e8c37a;--zone-green:#5fd28a}
+#seaBox{position:fixed;right:16px;bottom:16px;z-index:12;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ui-muted);
+  background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:99px;padding:6px 12px}
+.sea-dot{width:10px;height:10px;border-radius:50%;background:var(--sea-c,#5fd28a);flex:none}
+body .head-speedo{gap:8px}
+body .head-speedo #seaBox{position:static;background:rgba(255,255,255,.05);border:0;padding:8px 12px}
 button.sea-word{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ui-text);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .help-h{margin:0;padding:6px 16px 0;font-size:12.5px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
 ol.sea-scale{list-style:none;margin:6px 0 0;padding:0 12px;display:grid;gap:3px}
@@ -499,22 +505,27 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
 
 <div id="speedo" role="group" aria-label="Speed">
   <svg class="gauge" width="96" height="56" viewBox="0 0 100 58" aria-hidden="true">
-    <path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8" stroke-linecap="round"/>
-    <path id="gaugeArc" d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--wind)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+    <!-- zones: red 0–30%, yellow 30–75%, green 75–100% of max speed (Lis, 2026-11-18). Higher is better. -->
+    <path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--zone-red)" stroke-opacity=".28" stroke-width="8" pathLength="100" stroke-dasharray="30 100"/>
+    <path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--zone-yellow)" stroke-opacity=".28" stroke-width="8" pathLength="100" stroke-dasharray="0 30 45 100"/>
+    <path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--zone-green)" stroke-opacity=".28" stroke-width="8" pathLength="100" stroke-dasharray="0 75 25 100"/>
+    <path id="gaugeArc" d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="var(--zone-red)" stroke-width="8" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
     <line id="targetTick" x1="50" y1="6" x2="50" y2="16" stroke="var(--star)" stroke-width="3" stroke-linecap="round"/>
     <line id="needle" x1="50" y1="52" x2="50" y2="16" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
     <circle cx="50" cy="52" r="4" fill="#fff"/>
   </svg>
   <div>
     <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
-    <div class="band"><span class="band-speed"><span id="band">Becalmed</span> · </span>Sea <button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button></div>
+    <div class="band"><span class="band-speed"><span id="band">Becalmed</span></span></div>
   </div>
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button>
   <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
     <polyline id="spark" fill="none" stroke="var(--wind)" stroke-width="2" stroke-linejoin="round"/>
   </svg>
 </div>
-<div id="speedHidden" hidden>Speed hidden by facilitator · Sea <button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button>
+<!-- Sea health: its own indicator, apart from speed. Mood of the cards, never changes speed. -->
+<div id="seaBox" role="group" aria-label="Sea health"><span class="sea-dot" aria-hidden="true"></span>Sea <button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button></div>
+<div id="speedHidden" hidden>Speed hidden by facilitator
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button></div>
 
 <div id="helpPanel" role="dialog" aria-labelledby="helpTitle" hidden>
@@ -781,6 +792,7 @@ const actionCounts = cards => {
      roughness = trouble ÷ (wind + trouble), 0 with no cards
    ================================================================ */
 const SEA_WORDS = [[.15, "Calm"], [.35, "Breezy"], [.55, "Choppy"], [.75, "Rough"], [Infinity, "Stormy"]];
+const SEA_COLORS = { Calm:"#5fd28a", Breezy:"#a6d86a", Choppy:"#e8c37a", Rough:"#ef9a5a", Stormy:"#e5675a" };
 const seaWord = r => SEA_WORDS.find(([max]) => r < max)[1];
 const SEA_MEANING = {
   Calm: "Wins carry the sprint. Few open problems.",
@@ -1539,6 +1551,7 @@ function renderSeaWord(){
   if (model.sea.word === seaShown) return;
   seaShown = model.sea.word;
   document.querySelectorAll("[data-sea]").forEach(e => e.textContent = seaShown);
+  $("seaBox").style.setProperty("--sea-c", SEA_COLORS[seaShown]);
 }
 
 /* ================================================================
@@ -1853,7 +1866,7 @@ function setCollapsed(v){
 function buildStage(p){
   const fac = isFac();
   stage.className = "st-" + PHASES[p].key;
-  document.body.append($("speedo"), $("speedHidden")); // keep the speedometer safe while the box is rebuilt
+  document.body.append($("speedo"), $("speedHidden"), $("seaBox")); // keep the speedometer safe while the box is rebuilt
   stage.innerHTML = "";
   document.body.classList.toggle("cards-expanded", expandOn()); requestAnimationFrame(fitScene);
   const body = h("div", { class:"stage-body" });
@@ -1865,7 +1878,7 @@ function buildStage(p){
       collapseButton(),
       p === 2 ? expandButton() : null,
       // desktop: the speedometer rides in the card box header, so it never covers the ship
-      h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden"))),
+      h("span", { class:"head-speedo" }, $("seaBox"), $("speedo"), $("speedHidden"))),
     stepHint(p) || "",
     body,
     h("div", { class:"stage-foot" },
@@ -2441,6 +2454,7 @@ function frame(now){
     needle.setAttribute("transform", `rotate(${-90 + f*180} 50 52)`);
     targetTick.setAttribute("transform", `rotate(${-90 + ft*180} 50 52) translate(0,-2)`);
     gaugeArc.setAttribute("stroke-dasharray", `${f*100} 100`);
+    gaugeArc.setAttribute("stroke", f >= .75 ? "var(--zone-green)" : f >= .3 ? "var(--zone-yellow)" : "var(--zone-red)");
     $("knots").textContent = speed.toFixed(1);
     $("band").textContent = speed < 1 ? "Becalmed" : speed < 4 ? "Drifting" : speed < 8 ? "Steady sailing" : speed < 11 ? "Good breeze" : "Cruising";
   }
