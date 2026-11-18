@@ -455,7 +455,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <rect x="-3000" y="898" width="7600" height="3000" fill="#0f2f4d"/>
   <path id="wave0" fill="#4a8fac" opacity=".55"/>
   <g id="falling"></g>
-  <!-- Harbor: slides in after "Save and finish", the ship docks at the quay -->
+  <!-- Port: the ship is tied up at Dock, sails off, and docks again at Harbor -->
   <g id="harbor" opacity="0">
     <path d="M40,432 Q170,330 330,352 Q470,300 640,372 Q760,350 900,432 Z" fill="#2c5148"/>
     <path d="M200,432 Q330,380 470,392 Q600,370 760,432 Z" fill="#3a6658"/>
@@ -2411,7 +2411,7 @@ function tickSilent(){
 /* ================================================================
    Main loop (60fps, writes attributes directly)
    ================================================================ */
-let dock = 0; // 0 at sea, 1 docked in harbor
+let dock = null, dockSide = "left"; // dock: 0 at sea, 1 tied up. Dock (step 1) leaves from a quay behind the ship; Harbor (step 5) arrives at one ahead
 let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, shipX = 800, lastSample = 0, nsScale = .7, sampleN = 0;
 const boatWrap = $("boatWrap"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
 // [mast x, top y, bottom y, half width]: main course and topsail, fore course and topsail
@@ -2426,7 +2426,10 @@ function frame(now){
   if (!reduced) t += dt;
   speed = stepSpeed(speed, model.target, dt);
   // Docking: the harbor comes in over ~5 s and the scene slows to a stop. The speedometer keeps the final speed.
-  dock = reduced ? (S.landed ? 1 : 0) : clamp(dock + (S.landed ? dt / 5 : -dt / 1.5), 0, 1);
+  const inPort = S.phase === 0 || S.phase === 4;
+  if (S.phase === 0) dockSide = "left"; else if (S.phase === 4) dockSide = "right";
+  if (dock === null || reduced) dock = inPort ? 1 : 0; // opening a retro: already tied up, no slide-in
+  else dock = clamp(dock + (inPort ? dt / 5 : -dt / 4), 0, 1);
   const dk = dock * dock * (3 - 2 * dock), sceneV = speed * (1 - dk);
 
   gustBoost = Math.max(0, gustBoost - dt * .7);
@@ -2466,9 +2469,14 @@ function frame(now){
   const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, sceneV * .25);
   // Many open icebergs crowd the ship and push it back. Speed is untouched: it only counts participation.
   const seaTarget = 800 - Math.min(wideMQ.matches ? 230 : 110, model.sea.trouble * 12); // narrow screens: less, so it stays in frame
-  const shipTarget = seaTarget + (900 - seaTarget) * dk; // docked: bow up to the quay
+  const right = dockSide === "right";
+  const shipTarget = seaTarget + ((right ? 900 : 820) - seaTarget) * dk; // Harbor: bow up to the quay
   $("harbor").setAttribute("opacity", dock > 0 ? 1 : 0);
-  $("harbor").setAttribute("transform", `translate(${(1150 + (1 - dk) * 1000).toFixed(1)},0)`);
+  // Dock: the quay is mirrored behind the stern and falls away to the left as the ship casts off.
+  // Harbor: a quay comes in from the right and the ship sails up to it.
+  $("harbor").setAttribute("transform", right
+    ? `translate(${(1150 + (1 - dk) * 1000).toFixed(1)},0)`
+    : `translate(${(590 - (1 - dk) * 1400).toFixed(1)},0) scale(-1,1)`);
   $("seaRocks").setAttribute("opacity", (1 - dk).toFixed(3)); // icebergs fall behind as the ship comes in
   shipX += (shipTarget - shipX) * (reduced ? 1 : 1 - Math.exp(-dt / 1.6));
   boatWrap.setAttribute("transform", `translate(${shipX.toFixed(1)},${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
