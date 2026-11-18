@@ -740,6 +740,7 @@ const TASK_RE = /^(fix|add|do|create|write|update|implement|set ?up|make|build|s
      voices  = average over everyone present of each person's voice
                (1st card VOICE_1, 2nd +VOICE_2, 3rd +VOICE_3, more add nothing)
      votes   = people who voted ÷ present (every voter adds speed, not every vote)
+     present = most people seen this retro (leaving never shrinks it)
      actions = (owned + unowned × UNOWNED_ACTION) ÷ ACTIONS_TARGET, capped at 1
      energy  = W_VOICES·voices + W_VOTES·votes + W_ACTIONS·actions
      speed   = BASE_DRIFT + (MAX_SPEED − BASE_DRIFT) × energy
@@ -924,9 +925,11 @@ function starOutcome(s = S){
   if (!t.yes && !t.no) return "unchecked";
   return t.yes > t.no ? "met" : "missed";
 }
+/* The crew is everyone seen during this retro. Someone leaving never shrinks it,
+   so leaving never changes speed (Lis, 2026-11-18). */
 function participationOf(s = S){
   const added = Object.values(s.contributors || {}).filter(n => n > 0).length;
-  return { added, present: Math.max(added, people().length) };
+  return { added, present: Math.max(added, s.peakPresent || 0, people().length) };
 }
 /* RETRO HEALTH (pure — becomes lib/health.ts). Passive: only from what people already did.
    Never combined into one score. roomNow = people in the room right now. */
