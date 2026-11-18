@@ -55,10 +55,10 @@ body.cards-collapsed #stage{top:auto!important}
 body.cards-collapsed #stage .stage-body,body.cards-collapsed #stage .step-hint{display:none}
 @media (max-width:760px){ body.cards-collapsed{--sea-h:calc(100vh - 220px)} }
 .collapse-btn{white-space:nowrap}
-/* Navigate, expanded: the sea becomes a slim strip (the ship stays in view) and the cards get the rest
+/* Navigate and Set course, expanded: the sea becomes a slim strip (the ship stays in view) and the cards get the rest
    of the screen at full width, so far-apart cards can be dragged onto each other */
 body.cards-expanded{--sea-h:24vh}
-body.cards-expanded #stage.st-nav{width:calc(100vw - 32px)}
+body.cards-expanded #stage.st-nav,body.cards-expanded #stage.st-course{width:calc(100vw - 32px)}
 /* compact cards: text and votes on one row, so far more cards fit without scrolling */
 body.cards-expanded #stage.st-nav .card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;padding:6px 10px;margin:5px 0}
 body.cards-expanded #stage.st-nav .card>*{grid-column:1/-1}
@@ -1845,9 +1845,9 @@ function collapseButton(){
   return h("button", { class:"btn small ghost collapse-btn", type:"button", "aria-controls":"stage", "aria-expanded": String(!cardsCollapsed),
     text: cardsCollapsed ? "Show cards ▴" : "Hide cards ▾", onclick: () => setCollapsed(!cardsCollapsed) });
 }
-/* Navigate only: Expand gives the cards most of the screen. Also a personal view setting. */
+/* Navigate and Set course: Expand gives the cards most of the screen. Also a personal view setting. */
 let cardsExpanded = !!sget("rtw-cards-expanded");
-const expandOn = () => cardsExpanded && !cardsCollapsed && S && S.phase === 2;
+const expandOn = () => cardsExpanded && !cardsCollapsed && S && (S.phase === 2 || S.phase === 3);
 function expandButton(){
   return h("button", { class:"btn small ghost expand-btn", type:"button", "aria-controls":"stage", "aria-pressed": String(expandOn()),
     text: expandOn() ? "Shrink ⤡" : "Expand ⤢", title:"Give the cards more room, to merge cards that are far apart",
@@ -1887,7 +1887,7 @@ function buildStage(p){
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
       collapseButton(),
-      p === 2 ? expandButton() : null,
+      p === 2 || p === 3 ? expandButton() : null,
       // desktop: the speedometer rides in the card box header, so it never covers the ship
       h("span", { class:"head-speedo" }, $("seaBox"), $("speedo"), $("speedHidden"))),
     stepHint(p) || "",
