@@ -6,7 +6,7 @@
 <title>RetroTailWind</title>
 <!-- Lato for the app text (Lis, 2026-11-18); old ship lettering for the name on the hull -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Caveat:wght@600&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
   --ui-bg: rgba(14,27,48,.86);
@@ -273,11 +273,11 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 :root{--zone-red:#e5675a;--zone-yellow:#e8c37a;--zone-green:#5fd28a}
 #seaBox{position:fixed;right:16px;bottom:16px;z-index:12;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ui-muted);
   background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:99px;padding:6px 12px}
-/* Sea pill: a hand-drawn wave that gets choppier with the mood, and the word in the hull's lettering */
+/* Sea pill: a hand-drawn wave that gets choppier with the mood, written like a captain's logbook (Caveat) */
 .sea-glyph{width:30px;height:15px;flex:none;stroke:var(--sea-c,#5fd28a)}
-#seaBox .sea-word{font-family:'IM Fell English SC',Georgia,'Palatino Linotype',serif;font-size:17px;font-weight:400;letter-spacing:.5px;text-decoration:none;color:#f5ead6}
+#seaBox .sea-word{font-family:Caveat,'Segoe Print','Bradley Hand',cursive;font-size:22px;font-weight:600;line-height:1;text-decoration:none;color:#f5ead6}
 #seaBox .sea-word:hover,#seaBox .sea-word:focus-visible{text-decoration:underline;text-underline-offset:3px}
-#seaBox .sea-label{font-family:'IM Fell English SC',Georgia,serif;font-size:15px;color:var(--ui-muted);margin-left:-3px}
+#seaBox .sea-label{font-family:Caveat,'Segoe Print','Bradley Hand',cursive;font-size:18px;color:var(--ui-muted);margin-left:-3px}
 body .head-speedo{gap:8px}
 body .head-speedo #seaBox{position:static;background:rgba(255,255,255,.05);border:0;padding:8px 12px}
 button.sea-word{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ui-text);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
