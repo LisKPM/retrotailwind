@@ -5,3 +5,14 @@ A live sprint retrospective app. The ship's speed measures participation and onl
 ## Run it
 
 It's a single self-contained page. Open `index.html` in a browser, or serve the folder with any static host (GitHub Pages works).
+
+## Live sync (Firebase)
+
+Teams, cards, votes and presence sync across devices through the Firebase Realtime Database of project `retro-trail-wind` (Belgium, europe-west1). The config sits in `FIREBASE_CONFIG` in `index.html`; the security rules are in `database.rules.json` (paste into Firebase console, Realtime Database, Rules).
+
+- `teams/<id>/state`: latest snapshot, saved by the facilitator
+- `teams/<id>/actions`: every change in order; anyone joining replays what came after the snapshot
+- `teams/<id>/presence`: who is in the room, removed when they disconnect
+- `fk/<hash>`: facilitator key hash to team id
+
+If Firebase can't be reached, the app falls back to this browser only (localStorage and BroadcastChannel between tabs). Teams made before Firebase are uploaded the first time their link is opened in the browser that has them.

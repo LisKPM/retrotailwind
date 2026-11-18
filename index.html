@@ -893,6 +893,76 @@ let speed = 0;
 let history = [];
 let bc = null;
 
+/* ================================================================
+   CLOUD — Firebase Realtime Database (project retro-trail-wind)
+   teams/<id>/state     latest snapshot (JSON) + key of the last action in it
+   teams/<id>/actions   every action in order (push keys sort by time)
+   teams/<id>/presence  who is in the room, removed when they disconnect
+   fk/<hash>            facilitator key hash → team id (write once)
+   Links stay secret: only the hash of the facilitator key is stored and
+   no one can list teams. If Firebase can't load, the app falls back to
+   this browser only (localStorage + BroadcastChannel), as before.
+   ================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB3ubhrJbO30yB2UHwYz6i87ufSZzUstLU",
+  authDomain: "retro-trail-wind.firebaseapp.com",
+  databaseURL: "https://retro-trail-wind-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "retro-trail-wind",
+  storageBucket: "retro-trail-wind.firebasestorage.app",
+  messagingSenderId: "479869600256",
+  appId: "1:479869600256:web:25187e25bbd5c6e1488ee5"
+};
+const FB_SDK = "https://www.gstatic.com/firebasejs/13.4.0/";
+let fb = null, db = null;   // SDK module and database, null when offline
+let lastKey = "";           // newest action key this page has applied
+let quiet = false;          // true while catching up on old actions (no toasts)
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout")), ms))]);
+async function cloudInit(){
+  try {
+    const [app, d] = await withTimeout(Promise.all([import(FB_SDK + "firebase-app.js"), import(FB_SDK + "firebase-database.js")]), 8000);
+    fb = d; db = d.getDatabase(app.initializeApp(FIREBASE_CONFIG));
+  } catch (e){ console.warn("RetroTailWind: Firebase unavailable, this browser only", e); fb = db = null; }
+  return db;
+}
+const cref = path => fb.ref(db, path);
+async function cloudGet(path){ const snap = await withTimeout(fb.get(cref(path)), 8000); return snap.exists() ? snap.val() : null; }
+function cloudSet(path, v){ return db ? fb.set(cref(path), v).catch(e => console.warn("RetroTailWind: cloud save failed", path, e)) : Promise.resolve(); }
+async function cloudLoadTeam(id){
+  const v = await cloudGet(`teams/${id}/state`);
+  if (!v || typeof v.json !== "string") return null;
+  lastKey = v.lastKey || "";
+  return JSON.parse(v.json);
+}
+function cloudSaveTeam(t = team){ return cloudSet(`teams/${t.id}/state`, { json: JSON.stringify(t), lastKey, savedAt: fb.serverTimestamp() }); }
+function cloudSend(a){
+  const r = fb.push(cref(`teams/${team.id}/actions`));   // key is made here, before the write
+  if (r.key > lastKey) lastKey = r.key;
+  fb.set(r, { pid: me.id, a: JSON.stringify(a) }).catch(e => console.warn("RetroTailWind: action not sent", a.type, e));
+}
+function applyQuiet(a){ quiet = true; try { onRemote(a); } catch (e){ console.warn(e); } finally { quiet = false; } }
+async function cloudConnect(){
+  const base = `teams/${team.id}`, actions = cref(base + "/actions");
+  const after = k => k ? fb.query(actions, fb.orderByKey(), fb.startAfter(k)) : fb.query(actions, fb.orderByKey());
+  // 1. Catch up on actions saved after the snapshot (including this person's, from before a reload)
+  const backlog = await withTimeout(fb.get(after(lastKey)), 10000);
+  backlog.forEach(ch => { lastKey = ch.key; try { applyQuiet(JSON.parse(ch.val().a)); } catch {} });
+  if (backlog.size) rebuildAll();
+  // 2. Live: everyone else's actions from here on
+  fb.onChildAdded(after(lastKey), ch => {
+    if (ch.key > lastKey) lastKey = ch.key;
+    const v = ch.val(); if (!v || v.pid === me.id) return;   // own actions were applied when sent
+    try { onRemote(JSON.parse(v.a)); } catch (e){ console.warn("RetroTailWind: bad action", e); }
+  });
+  // 3. Presence: one node per person, gone when their connection drops
+  const pres = cref(base + "/presence");
+  fb.onDisconnect(cref(`${base}/presence/${me.id}`)).remove();
+  const seen = ch => presence({ ...ch.val(), type: "hello", reply: true });
+  fb.onChildAdded(pres, seen); fb.onChildChanged(pres, seen);
+  fb.onChildRemoved(pres, ch => presence({ type: "bye", pid: ch.key }));
+  // If the snapshot is behind (no facilitator saved for a while), refresh it
+  if (backlog.size && isFac()) persist();
+}
+
 function newSession({ ship = "", star = "", starRock = null, prevActions = [] } = {}){
   return { id: rid(9), ship, star, starRock, starVotes: {}, rockReturned: null, nextStar: null, contributors: {}, prevActions,
     phase: 0, phaseStartedAt: 0, phaseMinutes: 0, cards: [], silentUntil: 0, history: [], startedAt: Date.now() };
@@ -1045,12 +1115,19 @@ function energyOf(s = S){
 
 /* ================================================================
    SYNC — every change is an action. Applied locally, saved, and
-   broadcast. Here: BroadcastChannel between tabs of this browser.
-   Live version: server route → Postgres → Supabase Realtime broadcast.
+   broadcast. Live: Firebase action log (see CLOUD). Offline fallback:
+   BroadcastChannel between tabs of this browser.
    ================================================================ */
-let saveT = null;
-function persist(){ clearTimeout(saveT); saveT = setTimeout(() => sset("rtw-team-" + team.id, team), 250); }
-function dispatch(a){ apply(a, true); persist(); try { bc && bc.postMessage(a); } catch {} }
+let saveT = null, cloudT = null;
+function persist(){
+  clearTimeout(saveT); saveT = setTimeout(() => sset("rtw-team-" + team.id, team), 250);
+  // One writer for the cloud snapshot: the facilitator. Others replay the action log on load.
+  if (db && isFac()){ clearTimeout(cloudT); cloudT = setTimeout(() => cloudSaveTeam(), 1500); }
+}
+function dispatch(a){
+  apply(a, true); persist();
+  if (db) cloudSend(a); else try { bc && bc.postMessage(a); } catch {}
+}
 function onRemote(a){
   if (!a || !a.type) return;
   if (a.type === "hello" || a.type === "bye") return presence(a);
@@ -1209,7 +1286,9 @@ function apply(a, local){
 
 /* Presence (who's in the room) */
 function hello(reply){
-  try { bc && bc.postMessage({ type:"hello", reply: !!reply, person:{ id:me.id, name:me.name, color:me.color }, extras: isFac() ? sims : [] }); } catch {}
+  const person = { id:me.id, name:me.name, color:me.color }, extras = isFac() ? sims : [];
+  if (db){ if (!reply) cloudSet(`teams/${team.id}/presence/${me.id}`, { person, extras, t: fb.serverTimestamp() }); return; }
+  try { bc && bc.postMessage({ type:"hello", reply: !!reply, person, extras }); } catch {}
 }
 function presence(a){
   if (a.type === "bye"){ remotes.delete(a.pid); renderAvatars(); return; }
@@ -1695,6 +1774,7 @@ function oldRockToast(card){
 }
 function plainToast(text){ const d = pushToast("var(--star)", text); setTimeout(() => fade(d), 3200); announce(text); }
 function pushToast(color, text){
+  if (quiet) return h("div", {}, h("span"));  // catching up on old actions: no toasts
   const box = $("toasts");
   while (box.children.length >= 1) box.firstChild.remove(); // one toast at a time keeps the sky quiet
   const d = h("div", { class:"toast" }, h("span", { class:"dot", style:`background:${color}` }), h("span", { text }));
@@ -1703,7 +1783,7 @@ function pushToast(color, text){
 }
 function fade(d){ d.style.opacity = 0; setTimeout(() => d.remove(), 400); }
 let announceT = 0;
-function announce(msg){ const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
+function announce(msg){ if (quiet) return; const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
 
 let crewOpen = false;
 document.addEventListener("click", e => { if (crewOpen && !e.target.closest("#crewList")){ crewOpen = false; renderAvatars(); } });
@@ -2615,6 +2695,7 @@ $("createForm").onsubmit = async e => {
   const t = { id, name: $("teamName").value.trim() || "Our team", created: Date.now(), fkHash, config: {...DEFAULTS}, sessions: [], current: newSession({}) };
   sset("rtw-team-" + id, t);
   sset("rtw-fk-" + fkHash, id);
+  if (db || await cloudInit()){ lastKey = ""; await Promise.all([cloudSet("fk/" + fkHash, id), cloudSaveTeam(t)]); }
   location.hash = "#/f/" + key;
 };
 addEventListener("hashchange", () => location.reload());
@@ -2636,15 +2717,35 @@ async function init(){
   me.id = sget("rtw-pid", true) || rid(9);
   sset("rtw-pid", me.id, true);
   let m;
+  const isTeam = /^#\/[tf]\/[\w-]{16,}$/.test(location.hash);
+  if (isTeam) await cloudInit();
+  // Prefer the shared copy in the cloud; fall back to this browser's copy
+  const loadTeam = async tid => {
+    if (!tid) return null;
+    if (db){
+      try {
+        const t = await cloudLoadTeam(tid);
+        if (t) return t;
+        const local = sget("rtw-team-" + tid);
+        if (local){ lastKey = ""; await cloudSaveTeam(local); }   // a team made before Firebase: upload it
+        return local;
+      } catch (e){ console.warn("RetroTailWind: cloud load failed, this browser only", e); db = null; }
+    }
+    return sget("rtw-team-" + tid);
+  };
   if ((m = location.hash.match(/^#\/t\/([\w-]{16,})$/))){
-    team = sget("rtw-team-" + m[1]);
-    if (!team) return showLanding("This team link isn't stored in this browser. (In the live version it loads from the server.)");
+    team = await loadTeam(m[1]);
+    if (!team) return showLanding(db ? "We couldn't find this team. Check the link." : "We couldn't reach the server, and this team isn't saved in this browser. Check your connection and try again.");
     role = "participant";
   } else if ((m = location.hash.match(/^#\/f\/([\w-]{16,})$/))){
-    const tid = sget("rtw-fk-" + await sha(m[1]));
-    team = tid && sget("rtw-team-" + tid);
-    if (!team) return showLanding("This facilitator link isn't recognised in this browser.");
+    const fkHash = await sha(m[1]);
+    let tid = sget("rtw-fk-" + fkHash);
+    if (!tid && db){ try { tid = await cloudGet("fk/" + fkHash); } catch {} }
     role = "facilitator"; fkey = m[1];
+    team = await loadTeam(tid);
+    if (!team){ role = "participant"; fkey = null; return showLanding("This facilitator link isn't recognised."); }
+    sset("rtw-fk-" + fkHash, team.id);
+    if (db) cloudSet("fk/" + fkHash, team.id);   // no-op if it is already there (write once)
   } else {
     return showLanding();
   }
@@ -2665,12 +2766,16 @@ function start(){
   document.body.classList.toggle("cards-collapsed", cardsCollapsed);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
-  try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
+  if (!db) try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
   fitScene();
   rebuildAll(); renderAvatars();
   speed = model.target;
   hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
-  addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
+  addEventListener("pagehide", () => {
+    if (db) fb.remove(cref(`teams/${team.id}/presence/${me.id}`)).catch(() => {});
+    else try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {}
+  });
+  if (db) cloudConnect().catch(e => { console.warn("RetroTailWind: live sync failed", e); plainToast("Live sync is off. Check your connection and reload."); });
   requestAnimationFrame(frame);
   maybeTour();
 }

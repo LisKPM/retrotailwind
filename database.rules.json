@@ -1,0 +1,29 @@
+{
+  "rules": {
+    // RetroTailWind: links are secret, unguessable IDs. No one can list teams.
+    "teams": {
+      "$team": {
+        "state": {
+          ".read": true,
+          ".write": "$team.length >= 16",
+          ".validate": "newData.child('json').isString() && newData.child('json').val().length < 5000000"
+        },
+        "actions": {
+          ".read": true,
+          "$k": {
+            ".write": "!data.exists() && $team.length >= 16",
+            ".validate": "newData.child('pid').isString() && newData.child('a').isString() && newData.child('a').val().length < 3000000"
+          }
+        },
+        "presence": {
+          ".read": true,
+          "$pid": { ".write": "$team.length >= 16" }
+        }
+      }
+    },
+    // facilitator key hash -> team id, write once
+    "fk": {
+      "$h": { ".read": true, ".write": "!data.exists() && $h.length >= 32" }
+    }
+  }
+}
