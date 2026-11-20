@@ -1067,7 +1067,15 @@ function energyOf(s = S){
    The config below is not a secret: Firebase web configs are public by
    design. Access is limited by the database rules (long room codes only).
    ================================================================ */
-const FIREBASE_CONFIG = null; // ← paste the firebaseConfig object from the Firebase console here
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB3ubhrJbO30yB2UHwYz6i87ufSZzUstLU",
+  authDomain: "retro-trail-wind.firebaseapp.com",
+  databaseURL: "https://retro-trail-wind-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "retro-trail-wind",
+  storageBucket: "retro-trail-wind.firebasestorage.app",
+  messagingSenderId: "479869600256",
+  appId: "1:479869600256:web:25187e25bbd5c6e1488ee5"
+};
 let db = null, room = null, replaying = false, snapT = null, snapDue = 0;
 const applied = new Set(), appliedOrder = [];
 function cloudInit(){
