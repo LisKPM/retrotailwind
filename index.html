@@ -266,6 +266,15 @@ body.is-fac .card[draggable="true"]{cursor:grab}
 body.is-fac .card[draggable="true"]:active{cursor:grabbing}
 .card .grip{float:right;color:var(--ui-muted);font-size:14px;line-height:1;margin-left:6px;user-select:none}
 ul.merged{list-style:none;margin:-2px 0 6px;padding:0 0 0 10px;border-left:2px solid color-mix(in srgb,var(--c) 45%,transparent);display:grid;gap:3px;font-size:13px;color:var(--ui-muted)}
+.btn.danger{background:#d9534f;color:#fff;border-color:transparent;font-weight:700}
+.btn.danger:hover{background:#e0625e}
+.card .rm-btn{opacity:0;transition:opacity .15s;color:var(--ui-muted)}
+.card:hover .rm-btn,.card:focus-within .rm-btn{opacity:1}
+.rm-ask{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--ui-text)}
+.act-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.act-row input{flex:1 1 200px;min-width:0;padding:6px 9px;border-radius:8px;border:1px solid var(--ui-line);background:rgba(0,0,0,.25);color:var(--ui-text);font:inherit;font-size:13.5px}
+.act-row .own-in{flex:0 1 150px}
+.act-row input:focus{border-color:var(--focus);outline:none}
 .rename-row{display:flex;gap:6px;margin:0 0 6px}
 .rename-row input{flex:1;min-width:0;padding:6px 9px;border-radius:8px;border:1px solid var(--focus);background:rgba(0,0,0,.25);color:var(--ui-text)}
 ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-between}
@@ -401,12 +410,6 @@ ul.matches{margin:4px 0;padding-left:20px;color:var(--ui-text);font-size:13px}
 .sheet label{display:grid;gap:6px;font-size:14px}
 
 /* action item dialog */
-.act-sheet{width:min(500px,100%)}
-.act-sheet h1{font-size:21px}
-.act-for{margin:0;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ui-muted)}
-.act-for b{color:var(--ui-text)}
-.act-sheet textarea{resize:vertical;min-height:58px}
-.act-sheet select{appearance:auto}
 .card p.for-line{margin:-2px 0 6px;font-size:12.5px;color:var(--ui-muted)}
 
 /* onboarding */
@@ -710,23 +713,6 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   </div>
 </div>
 
-<div id="actDlg" class="overlay" role="dialog" aria-modal="true" aria-labelledby="actTitle" hidden>
-  <form class="sheet act-sheet" id="actForm">
-    <h1 id="actTitle">Action item</h1>
-    <p class="act-for"><span class="dot" id="actDot"></span><span>For: <b id="actProblem"></b></span></p>
-    <label>What will we do?
-      <textarea class="text-in" id="actText" rows="2" maxlength="140" required placeholder="e.g. Add a staging health check before every release"></textarea></label>
-    <label>Owner <input class="text-in" id="actOwner" list="actOwners" maxlength="40" autocomplete="off" placeholder="Type a name, or leave empty for no owner yet"></label>
-    <datalist id="actOwners"></datalist>
-    <p class="muted" style="margin:0">Agree on it together with the team. An action with an owner melts the iceberg.</p>
-    <div class="center-actions" style="margin-top:2px">
-      <button type="button" class="btn ghost" id="actRemove">Remove action</button>
-      <span style="flex:1"></span>
-      <button type="button" class="btn" id="actCancel">Cancel</button>
-      <button type="submit" class="btn primary">Save action</button>
-    </div>
-  </form>
-</div>
 
 <div id="toasts" aria-hidden="true"></div>
 <div id="live" class="sr-only" aria-live="polite"></div>
@@ -1302,6 +1288,17 @@ function apply(a, local){
       renderRocks(); renderStage();
       break;
     }
+    case "card.remove": { // facilitator removes a card added by mistake; the writer's participation still counts
+      const c = byId(a.cardId); if (!c || c.scraped) return;
+      S.cards = S.cards.filter(x => x !== c);
+      if (removeId === c.id) removeId = null; if (renameId === c.id) renameId = null;
+      recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
+      plainToast(`Card removed: ${c.text}`);
+      break;
+    }
+    case "sort":
+      S.sortVotes = !!a.on; renderStage();
+      break;
     case "retype": { // facilitator moves a card that went into the wrong column (Lis)
       const c = byId(a.cardId), name = (TYPES.find(([t]) => t === a.to) || [])[1];
       if (!c || !name || c.type === a.to || c.scraped) return;
@@ -2222,6 +2219,8 @@ function buildStage(p){
   body.append(h("div", { id:"stageDyn" }));
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
+      p === 2 && fac ? h("button", { class:"btn small ghost sort-btn", type:"button", "aria-pressed": String(!!S.sortVotes),
+        title:"Most voted cards first, for everyone", onclick: () => dispatch({ type:"sort", on: !S.sortVotes }) }) : null,
       p >= 1 && p <= 3 ? collapseButton() : null,
       expandButton(),
       // desktop: the speedometer rides in the card box header, so it never covers the ship
@@ -2291,6 +2290,9 @@ function fillStage(p){
     }
   }
   $("stageStat").textContent = stageStat(p);
+  const sb = stage.querySelector(".sort-btn");
+  if (sb){ sb.textContent = S.sortVotes ? "Sorted by votes ✓" : "Sort by votes ⇅"; sb.setAttribute("aria-pressed", String(!!S.sortVotes)); }
+  if (p >= 3) crewNames();
   const nextBtn = stage.querySelector(".stage-foot .btn.primary");
   if (p === 3){
     const left = needsAction().length, gate = $("harborGate");
@@ -2327,6 +2329,7 @@ function stageContent(p){
   }
   if (p === 2) return TYPES.map(([t, name]) => {
     const cards = S.cards.filter(c => c.type === t);
+    if (S.sortVotes) cards.sort((a, b) => totalVotes(b) - totalVotes(a)); // stable: equal votes keep the order they were written
     const col = h("section", { class:"col", "data-type": t });
     if (isFac()) columnDrop(col, t, name);
     col.append(h("h3", { class:"col-h" }, h("span", { class:"dot", style:`background:var(--${t})` }), name, h("span", { class:"count-pill", text: cards.length })),
@@ -2418,13 +2421,15 @@ function tile(c, mode){
         h("b", { text: String(total) }),
         h("span", { class:"pips", "aria-hidden":"true" }, Array.from({ length: C.MAX_VOTES_PER_CARD }, (_, i) => h("i", { class: i < mine ? "on" : null })))),
       h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
-    if (isFac() && !c.scraped) meta.prepend(moveSelect(c));
+    if (isFac() && !c.scraped) meta.prepend(moveSelect(c), removeButton(c));
   } else if (isAct){
+    if (isFac() && editId === c.id){ li.append(actionForm(c)); return li; }
     meta.append(c.owner ? h("span", { text:`Owner: ${c.owner}` }) : h("span", { class:"warn-t", text:"⚠ No owner" }));
-    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"e" + c.id, "aria-label":`Edit action: ${c.action || c.text}`, text:"Edit", onclick: () => openActionDlg(c) }));
+    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"e" + c.id, "aria-label":`Edit action: ${c.action || c.text}`, text:"Edit",
+      onclick: () => { editId = c.id; delete drafts[c.id]; renderStage(); } }));
   } else {
     meta.append(h("span", { text: plural(total, "vote") }));
-    if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"a" + c.id, "aria-label":`Make an action for: ${c.text}`, text:"★ Make an action", onclick: () => openActionDlg(c) }));
+    if (isFac()){ li.append(meta, actionForm(c)); return li; }
   }
   li.append(meta);
   return li;
@@ -2470,6 +2475,17 @@ function columnDrop(col, t, name){
     dispatch({ type:"retype", cardId: c.id, to: t });
   });
 }
+/* Navigate: the facilitator removes a card added by mistake (asks once, right on the card). Its votes go back to people. */
+let removeId = null; // this tab only
+function removeButton(c){
+  if (removeId !== c.id) return h("button", { class:"btn small ghost rm-btn", type:"button", "data-fk":"rm" + c.id, "aria-label":`Remove card: ${c.text}`, title:"Remove this card", text:"Remove",
+    onclick: () => { removeId = c.id; renderStage(); } });
+  const n = (c.merged || []).length;
+  return h("span", { class:"rm-ask", role:"group", "aria-label":"Remove this card?" },
+    h("span", { text: n ? `Remove it and the ${plural(n, "card")} merged in?` : "Remove this card?" }),
+    h("button", { class:"btn small danger", type:"button", "data-fk":"rmy" + c.id, text:"Remove", onclick: () => dispatch({ type:"card.remove", cardId: c.id }) }),
+    h("button", { class:"btn small ghost", type:"button", "data-fk":"rmn" + c.id, text:"Keep", onclick: () => { removeId = null; renderStage(); } }));
+}
 function moveSelect(c){
   const sel = h("select", { class:"move-sel", "data-fk":"mv" + c.id, "aria-label":`Move to another column: ${c.text}`, title:"Move to another column" },
     h("option", { value:"", text:"Move ⇄" }), TYPES.filter(([t]) => t !== c.type).map(([t, name]) => h("option", { value:t, text:name })));
@@ -2477,35 +2493,35 @@ function moveSelect(c){
   return sel;
 }
 
-/* Action items are decided, not generated: the facilitator writes what the team will do and who owns it */
-let actCard = null, actReturn = null;
-function openActionDlg(c){
-  if (!isFac()) return;
-  actCard = c.id; actReturn = document.activeElement;
-  $("actProblem").textContent = c.text; $("actDot").style.background = `var(--${c.type})`;
-  $("actText").value = c.action || "";
-  const names = [...new Set(people().map(x => x.name).filter(Boolean))];
-  if (c.owner && !names.includes(c.owner)) names.push(c.owner);
-  // Owner is typed: the crew in the room are suggested, any other name is fine too
-  $("actOwners").replaceChildren(...names.map(n => h("option", { value:n })));
-  $("actOwner").value = c.owner || "";
-  $("actRemove").hidden = !c.scraped;
-  $("actDlg").hidden = false; $("actText").focus();
+/* Action items are decided, not generated: the facilitator writes what the team will do and who owns it,
+   straight on the card in Set course (Lis 2026-11-20: no popup). Drafts live in this tab until saved. */
+let editId = null; const drafts = {};
+function crewNames(){
+  let dl = $("crewNames"); if (!dl){ dl = h("datalist", { id:"crewNames" }); document.body.append(dl); }
+  const names = [...new Set([...people().map(x => x.name), ...S.cards.map(c => c.owner)].filter(Boolean))];
+  if (dl.dataset.k !== names.join("|")){ dl.dataset.k = names.join("|"); dl.replaceChildren(...names.map(n => h("option", { value:n }))); }
 }
-function closeActionDlg(){
-  const id = actCard;
-  $("actDlg").hidden = true; actCard = null;
-  const back = actReturn && actReturn.isConnected ? actReturn : stage.querySelector(`[data-fk="e${id}"]`) || stage.querySelector(".stage-foot .btn.primary");
-  if (back) back.focus();
+function actionForm(c){
+  const d = drafts[c.id] ||= { text: c.action || "", owner: c.owner || "" };
+  const save = () => {
+    const text = d.text.trim(); if (!text){ act.focus(); return; }
+    delete drafts[c.id]; editId = null;
+    dispatch({ type:"action.set", cardId: c.id, text, owner: d.owner.trim().replace(/\s+/g, " ") || null });
+  };
+  const cancel = () => { delete drafts[c.id]; editId = null; renderStage(); };
+  const keys = e => { if (e.key === "Enter"){ e.preventDefault(); save(); } else if (e.key === "Escape" && c.scraped){ e.preventDefault(); e.stopPropagation(); cancel(); } };
+  const act = h("input", { type:"text", class:"act-in", "data-fk":"at" + c.id, maxlength:140, autocomplete:"off", value: d.text,
+    placeholder: "★ What will we do?", "aria-label":`Action for: ${c.text}` });
+  const own = h("input", { type:"text", class:"own-in", "data-fk":"ao" + c.id, maxlength:40, autocomplete:"off", list:"crewNames", value: d.owner,
+    placeholder:"Owner", "aria-label":`Owner of the action for: ${c.text}` });
+  act.oninput = () => { d.text = act.value; }; own.oninput = () => { d.owner = own.value; };
+  act.onkeydown = keys; own.onkeydown = keys;
+  return h("div", { class:"act-row" }, act, own,
+    h("button", { class:"btn small primary", type:"button", "data-fk":"as" + c.id, text: c.scraped ? "Save" : "Add action", onclick: save }),
+    c.scraped ? h("button", { class:"btn small ghost", type:"button", text:"Cancel", onclick: cancel }) : null,
+    c.scraped ? h("button", { class:"btn small ghost", type:"button", "aria-label":`Remove the action for: ${c.text}`, text:"Remove action",
+      onclick: () => { delete drafts[c.id]; editId = null; dispatch({ type:"action.remove", cardId: c.id }); } }) : null);
 }
-$("actForm").onsubmit = e => {
-  e.preventDefault();
-  const text = $("actText").value.trim(); if (!text || !actCard) return;
-  dispatch({ type:"action.set", cardId: actCard, text, owner: $("actOwner").value.trim().replace(/\s+/g, " ") || null });
-  closeActionDlg();
-};
-$("actCancel").onclick = closeActionDlg;
-$("actRemove").onclick = () => { if (actCard) dispatch({ type:"action.remove", cardId: actCard }); closeActionDlg(); };
 
 /* Step timer: counts down, then keeps counting as overtime. Nothing moves on by itself. */
 let timerText = "";
@@ -3053,7 +3069,6 @@ document.querySelectorAll("button.sea-word").forEach(b => b.onclick = () => setH
 $("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  if (!$("actDlg").hidden){ closeActionDlg(); return; }
   if (!$("tour").hidden){ closeTour(); return; }
   if (!$("menu").hidden){ setMenu(false); $("menuBtn").focus(); return; }
   if (!$("helpPanel").hidden){ setHelp(false); return; }
