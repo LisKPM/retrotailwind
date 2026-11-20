@@ -1554,7 +1554,10 @@ const ICE_LOOK = {
   back:  ["#b9c8d3", "#5f7f93", "#8fa5b5", "#5d7a8e", .55],
   black: ["#1c2127", "#d7e6ef", "#2e353d", "#0f1317", .75],
 };
-const iceScale = c => Math.min(3.6, 1.25 * ICE_STAGE_SIZE[iceStage(c)] * (1 + Math.min(10, totalVotes(c)) * .12));
+// Lis 2026-11-20: votes must make an iceberg clearly bigger (+25% per vote, up to 8 votes = 3x)
+const ICE_VOTE_GROW = .25, ICE_VOTE_CAP = 8;
+const iceBase = c => 1.25 * ICE_STAGE_SIZE[iceStage(c)];
+const iceScale = c => Math.min(4.6, iceBase(c) * (1 + Math.min(ICE_VOTE_CAP, totalVotes(c)) * ICE_VOTE_GROW));
 function renderRocks(newId){
   if (!S) return null;
   const g = $("seaRocks");
@@ -1566,7 +1569,9 @@ function renderRocks(newId){
   // Shrink every iceberg by the same amount so they all fit side by side in the front row
   // (no small one hidden behind a big one). Sizes stay in proportion; the back row is a last resort.
   const shown = open.slice(0, C.MAX_ROCK_SPRITES);
-  const need = shown.reduce((a, c) => a + 2 * ICE_HALF * iceScale(c) + 8, 0);
+  // fit on the unvoted size, so a vote never shrinks the others back: voted icebergs really grow,
+  // and if the row overflows the smallest ones move to the back row
+  const need = shown.reduce((a, c) => a + 2 * ICE_HALF * iceBase(c) + 8, 0);
   const fit = need > 0 ? clamp((right - fx) / need, .5, 1) : 1;
   for (const c of open){
     if (placed.length >= C.MAX_ROCK_SPRITES) break;
@@ -2093,8 +2098,10 @@ let builtPhase = null, composeType = "wind";
 
 /* Harbor rule (Lis, 2026-11-20): the ship can't enter Harbor while any problem the crew voted on
    has no action item with an owner. Owned actions melt icebergs and patch sails, clearing the way. */
+// Lis 2026-11-20: Harbor lock OFF for now. Set to true to block Harbor again until every voted problem has an action + owner.
+const HARBOR_LOCK = false;
 const needsAction = (s = S) => problems(s.cards).filter(c => totalVotes(c) > 0 && !(c.scraped && c.owner));
-function gotoPhase(p){ if (p === 4 && S.phase < 4 && needsAction().length) return; dispatch({ type:"phase", phase: p, startedAt: Date.now(), minutes: stepMin(p), ...(p === 4 ? { energy: S.peakEnergy || 0 } : {}) }); }
+function gotoPhase(p){ if (HARBOR_LOCK && p === 4 && S.phase < 4 && needsAction().length) return; dispatch({ type:"phase", phase: p, startedAt: Date.now(), minutes: stepMin(p), ...(p === 4 ? { energy: S.peakEnergy || 0 } : {}) }); }
 function goNext(){ if (S.phase < 4) gotoPhase(S.phase + 1); else if (!S.landed) land(); else nextRetro(); }
 /* Save the voyage first, then dock. The next retro starts only when the facilitator asks. */
 function land(){
@@ -2226,14 +2233,16 @@ function fillStage(p){
   if (p === 3){
     const left = needsAction().length, gate = $("harborGate");
     if (gate){
-      gate.className = "harbor-gate " + (left ? "warn" : "ok-note");
-      gate.textContent = left ? `⚓ ${left} voted ${left === 1 ? "problem needs" : "problems need"} an action and an owner before Harbor` : "⚓ The way is clear for Harbor";
+      gate.className = "harbor-gate " + (left && HARBOR_LOCK ? "warn" : "ok-note");
+      gate.textContent = !left ? "⚓ The way is clear for Harbor"
+        : HARBOR_LOCK ? `⚓ ${left} voted ${left === 1 ? "problem needs" : "problems need"} an action and an owner before Harbor`
+        : `⚓ ${left} voted ${left === 1 ? "problem has" : "problems have"} no action yet`;
     }
   }
   if (nextBtn && p === 3){
     const left = needsAction().length;
-    nextBtn.disabled = left > 0;
-    nextBtn.title = left ? `${plural(left, "problem")} with votes still need an action and an owner` : "";
+    nextBtn.disabled = HARBOR_LOCK && left > 0;
+    nextBtn.title = HARBOR_LOCK && left ? `${plural(left, "problem")} with votes still need an action and an owner` : "";
   }
   stage.querySelectorAll(".min-in").forEach(i => { if (i !== document.activeElement) i.value = C[i.dataset.key]; });
   if ($("timingTotal")) $("timingTotal").textContent = totalMin() + " min";
