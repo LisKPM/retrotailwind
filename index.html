@@ -241,6 +241,16 @@ ul.prev{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
 .prev-item .votebar{margin:0}
 #stage h2.sub-h{font-size:15px;margin:8px 0 2px;color:var(--star)}
 .card.drag-src{opacity:.45}
+/* Navigate: columns are drop targets for moving a card; they fill the board height so a short column still catches it */
+.board{align-items:stretch}
+.board .col{border-radius:12px;padding:2px 4px;margin:-2px -4px;min-height:100%}
+.board .col.col-drop{outline:2px dashed var(--focus);outline-offset:2px;background:rgba(255,213,107,.06)}
+.move-sel{font:inherit;font-size:12px;color:var(--ui-muted);background:transparent;border:1px solid var(--ui-line);border-radius:7px;padding:3px 4px;cursor:pointer;margin-right:6px}
+.move-sel:hover,.move-sel:focus-visible{color:var(--ui-text);border-color:var(--focus)}
+/* quiet until the facilitator points at a card */
+.card .move-sel{opacity:0;transition:opacity .15s}
+.card:hover .move-sel,.card:focus-within .move-sel{opacity:1}
+.move-sel option{background:var(--ui-bg-solid);color:var(--ui-text)}
 .card.drop-ok{outline:2px dashed var(--focus);outline-offset:2px;background:rgba(255,213,107,.08)}
 body.is-fac .card[draggable="true"]{cursor:grab}
 body.is-fac .card[draggable="true"]:active{cursor:grabbing}
@@ -1267,6 +1277,15 @@ function apply(a, local){
       renderRocks(); renderStage();
       break;
     }
+    case "retype": { // facilitator moves a card that went into the wrong column (Lis)
+      const c = byId(a.cardId), name = (TYPES.find(([t]) => t === a.to) || [])[1];
+      if (!c || !name || c.type === a.to || c.scraped) return;
+      c.type = a.to; (c.merged || []).forEach(k => { k.type = a.to; });
+      if (a.to === "wind"){ c.returned = null; delete c.returnedOwn; } // wind is never a returning problem
+      recompute(); renderBarnacles(); renderRocks(); renderStars(); renderStage();
+      plainToast(`Moved to ${name}: ${c.text}`);
+      break;
+    }
     case "ungroup": {
       const next = ungroupCard(S.cards, a.cardId, a.childId); if (next === S.cards) return;
       S.cards = next;
@@ -2267,8 +2286,11 @@ function stageContent(p){
   }
   if (p === 2) return TYPES.map(([t, name]) => {
     const cards = S.cards.filter(c => c.type === t);
-    return h("section", {}, h("h3", { class:"col-h" }, h("span", { class:"dot", style:`background:var(--${t})` }), name, h("span", { class:"count-pill", text: cards.length })),
+    const col = h("section", { class:"col", "data-type": t });
+    if (isFac()) columnDrop(col, t, name);
+    col.append(h("h3", { class:"col-h" }, h("span", { class:"dot", style:`background:var(--${t})` }), name, h("span", { class:"count-pill", text: cards.length })),
       h("ul", { class:"cards" }, cards.map(c => tile(c, "vote"))));
+    return col;
   });
   const acts = S.cards.filter(c => c.scraped);
   const actList = acts.length ? h("ul", { class:"cards" }, acts.map(c => tile(c, p === 3 ? "owner" : "action"))) : h("p", { class:"muted", text: p === 3 ? "None yet" : "No action items this time" });
@@ -2355,6 +2377,7 @@ function tile(c, mode){
         h("b", { text: String(total) }),
         h("span", { class:"pips", "aria-hidden":"true" }, Array.from({ length: C.MAX_VOTES_PER_CARD }, (_, i) => h("i", { class: i < mine ? "on" : null })))),
       h("button", { type:"button", "data-fk":"p" + c.id, "aria-label":`Vote: ${c.text}`, text:"+", disabled: !canVote(c, me.id, 1), onclick: () => myVote(c.id, +1) })));
+    if (isFac() && !c.scraped) meta.prepend(moveSelect(c));
   } else if (isAct){
     meta.append(c.owner ? h("span", { text:`Owner: ${c.owner}` }) : h("span", { class:"warn-t", text:"⚠ No owner" }));
     if (isFac()) meta.append(h("button", { class:"btn small", type:"button", "data-fk":"e" + c.id, "aria-label":`Edit action: ${c.action || c.text}`, text:"Edit", onclick: () => openActionDlg(c) }));
@@ -2377,13 +2400,13 @@ stage.addEventListener("dragover", e => {
 let dragId = null, renameId = null; // this tab only: card being dragged, merged card being renamed
 function dragMerge(li, c){
   li.draggable = true;
-  li.title = "Drag onto a matching card to merge them";
+  li.title = "Drag onto a matching card to merge, or onto another column to move it";
   li.prepend(h("span", { class:"grip", "aria-hidden":"true", text:"⠿" }));
   li.addEventListener("dragstart", e => {
     dragId = c.id; li.classList.add("drag-src");
     try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); } catch {}
   });
-  li.addEventListener("dragend", () => { dragId = null; li.classList.remove("drag-src"); document.querySelectorAll(".card.drop-ok").forEach(x => x.classList.remove("drop-ok")); });
+  li.addEventListener("dragend", () => { dragId = null; li.classList.remove("drag-src"); document.querySelectorAll(".card.drop-ok,.col-drop").forEach(x => x.classList.remove("drop-ok", "col-drop")); });
   const ok = () => dragId && canGroup(byId(dragId), byId(c.id));
   li.addEventListener("dragover", e => { if (!ok()) return; e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch {} li.classList.add("drop-ok"); });
   li.addEventListener("dragleave", e => { if (!li.contains(e.relatedTarget)) li.classList.remove("drop-ok"); });
@@ -2392,6 +2415,25 @@ function dragMerge(li, c){
     const from = dragId; dragId = null;
     if (from && canGroup(byId(from), byId(c.id))) dispatch({ type:"group", cardId: from, intoId: c.id });
   });
+}
+
+/* Navigate: a card in the wrong column moves by dragging it onto another column, or with the small Move list */
+function columnDrop(col, t, name){
+  const ok = () => { const c = dragId && byId(dragId); return !!c && c.type !== t && !c.scraped; };
+  col.addEventListener("dragover", e => { if (!ok() || e.target.closest(".card.drop-ok")) return; e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch {} col.classList.add("col-drop"); });
+  col.addEventListener("dragleave", e => { if (!col.contains(e.relatedTarget)) col.classList.remove("col-drop"); });
+  col.addEventListener("drop", e => {
+    col.classList.remove("col-drop");
+    const c = dragId && byId(dragId); if (!c || c.type === t || c.scraped) return;
+    e.preventDefault(); dragId = null;
+    dispatch({ type:"retype", cardId: c.id, to: t });
+  });
+}
+function moveSelect(c){
+  const sel = h("select", { class:"move-sel", "data-fk":"mv" + c.id, "aria-label":`Move to another column: ${c.text}`, title:"Move to another column" },
+    h("option", { value:"", text:"Move ⇄" }), TYPES.filter(([t]) => t !== c.type).map(([t, name]) => h("option", { value:t, text:name })));
+  sel.onchange = () => { if (sel.value) dispatch({ type:"retype", cardId: c.id, to: sel.value }); };
+  return sel;
 }
 
 /* Action items are decided, not generated: the facilitator writes what the team will do and who owns it */
@@ -2522,7 +2564,7 @@ function stepHint(p){
   const text = p === 0 && !S.star ? "Name the ship, then check in as the crew comes aboard."
     : p === 4 && !S.star ? "Check the action items, then save the voyage. The next star comes after."
     : PHASES[p].hint;
-  return h("p", { class:"step-hint", text: p === 2 && isFac() ? text + " Drag a card onto a duplicate to merge them." : text });
+  return h("p", { class:"step-hint", text: p === 2 && isFac() ? text + " Drag a card onto a duplicate to merge them, or onto another column if it landed in the wrong one." : text });
 }
 
 /* ================================================================
