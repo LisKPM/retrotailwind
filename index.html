@@ -75,6 +75,7 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
   background:linear-gradient(to bottom,rgba(10,20,38,.8),rgba(10,20,38,0));z-index:20}
 .brand{font-weight:700;letter-spacing:.2px;font-size:17px;white-space:nowrap}
 .brand span{color:var(--wind)}
+.role.net{background:rgba(240,138,126,.18);color:#ffb3a8}
 .role{font-size:12px;padding:3px 9px;border-radius:99px;background:rgba(255,229,154,.16);color:var(--star);white-space:nowrap}
 .spacer{flex:1}
 #avatars{display:flex;align-items:center}
@@ -540,6 +541,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
 <header>
   <div class="brand">Retro<span>TailWind</span></div>
   <span class="role hide-sm" id="roleChip"></span>
+  <span class="role net" id="netChip" role="status" title="Your changes are kept and will sync when you're back online." hidden>Offline. Changes will sync.</span>
   <span id="silentChip" role="status" hidden></span>
   <div class="spacer"></div>
   <div id="voyage">
@@ -687,6 +689,9 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <button class="btn fac-only" id="mTune">Tune</button>
 </nav>
 
+<!-- Firebase Realtime Database (free Spark plan): one shared retro across laptops -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script>
 "use strict";
 /* ================================================================
@@ -1059,17 +1064,116 @@ function energyOf(s = S){
 }
 
 /* ================================================================
-   SYNC — every change is an action. Applied locally, saved, and
-   broadcast. Here: BroadcastChannel between tabs of this browser.
-   Live version: server route → Postgres → Supabase Realtime broadcast.
+   SYNC — every change is an action. Applied locally, saved, and sent.
+   With FIREBASE_CONFIG set: Firebase Realtime Database, so a team on
+   different laptops shares one live retro. Without it: BroadcastChannel
+   between tabs of this browser only.
+
+   rooms/<teamId>/snap            { json, applied, savedAt } the facilitator's saved copy
+   rooms/<teamId>/ops/<pushKey>   { a, by } every change, in time order
+   rooms/<teamId>/presence/<pid>  { json } who's here; removed when they drop off
+   rooms/<sha(facilitatorKey)>/team = teamId  so the facilitator link opens on any laptop
+
+   Loading = read the saved copy, then replay the changes it hasn't seen.
+   Nothing resets when someone loses connection: the database keeps the
+   retro, and the browser queues its own changes until it's back online.
+   The config below is not a secret: Firebase web configs are public by
+   design. Access is limited by the database rules (long room codes only).
    ================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB3ubhrJbO30yB2UHwYz6i87ufSZzUstLU",
+  authDomain: "retro-trail-wind.firebaseapp.com",
+  databaseURL: "https://retro-trail-wind-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "retro-trail-wind",
+  storageBucket: "retro-trail-wind.firebasestorage.app",
+  messagingSenderId: "479869600256",
+  appId: "1:479869600256:web:25187e25bbd5c6e1488ee5"
+};
+let db = null, room = null, replaying = false, snapT = null, snapDue = 0;
+const applied = new Set(), appliedOrder = [];
+function cloudInit(){
+  const emu = new URLSearchParams(location.search).get("emu"); // local testing against the Firebase emulator
+  const cfg = emu ? { projectId: "demo-rtw", databaseURL: `http://127.0.0.1:${emu}?ns=demo-rtw` } : FIREBASE_CONFIG;
+  if (!cfg || !window.firebase) return;
+  try {
+    firebase.initializeApp(cfg);
+    db = firebase.database();
+    if (emu) db.useEmulator("127.0.0.1", +emu);
+  } catch (e){ console.warn("Firebase unavailable, staying in this browser only", e); db = null; }
+}
+const cloud = () => !!db;
+// Push keys start with the time, so "everything since time t" is a key range
+const PUSH_CHARS = "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+function keyAt(ms){ let s = ""; ms = Math.max(0, Math.floor(ms)); for (let i = 0; i < 8; i++){ s = PUSH_CHARS[ms % 64] + s; ms = Math.floor(ms / 64); } return s; }
+const opsSince = () => keyAt((S.startedAt || Date.now()) - 600000);
+function markApplied(k){
+  if (applied.has(k)) return; applied.add(k); appliedOrder.push(k);
+  if (appliedOrder.length > 5000) applied.delete(appliedOrder.shift());
+}
+function withTimeout(p, ms){ return Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("timeout")), ms))]); }
+async function cloudGet(path){ const s = await withTimeout(db.ref(path).get(), 8000); return s.exists() ? s.val() : null; }
+function snapOf(){ const since = opsSince(); return { json: JSON.stringify(team), applied: JSON.stringify(appliedOrder.filter(k => k >= since)) }; }
+function adoptSnap(snap){
+  team = JSON.parse(snap.json);
+  applied.clear(); appliedOrder.length = 0;
+  for (const k of JSON.parse(snap.applied || "[]")) markApplied(k);
+}
+// Only the facilitator writes the saved copy (it also holds the speed history they record)
+function saveSnap(){
+  if (!cloud() || !isFac() || !room) return;
+  if (!snapDue) snapDue = Date.now() + 2000;
+  clearTimeout(snapT);
+  snapT = setTimeout(() => {
+    snapDue = 0;
+    room.child("snap").set({ ...snapOf(), savedAt: firebase.database.ServerValue.TIMESTAMP }).catch(e => console.warn("save failed", e));
+  }, Math.max(0, Math.min(800, snapDue - Date.now())));
+}
+
 let saveT = null;
-function persist(){ clearTimeout(saveT); saveT = setTimeout(() => sset("rtw-team-" + team.id, team), 250); }
-function dispatch(a){ apply(a, true); persist(); try { bc && bc.postMessage(a); } catch {} }
+function persist(){
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { sset("rtw-team-" + team.id, team); if (cloud()) sset("rtw-applied-" + team.id, appliedOrder.slice(-1000)); }, 250);
+  saveSnap();
+}
+function dispatch(a){
+  apply(a, true);
+  if (cloud() && room){
+    const r = room.child("ops").push(); markApplied(r.key);
+    r.set({ a: JSON.stringify(a), by: me.id }).catch(e => console.warn("send failed", e));
+  } else { try { bc && bc.postMessage(a); } catch {} }
+  persist();
+}
 function onRemote(a){
   if (!a || !a.type) return;
   if (a.type === "hello" || a.type === "bye") return presence(a);
   apply(a, false);
+  if (cloud()) persist();
+}
+function cloudStart(){
+  room.child("ops").orderByKey().startAt(opsSince()).on("child_added", s => {
+    if (applied.has(s.key)) return;
+    markApplied(s.key);
+    let a; try { a = JSON.parse(s.val().a); } catch { return; }
+    onRemote(a);
+  });
+  const pres = room.child("presence"), mine = pres.child(me.id);
+  let ready = false;
+  const seen = s => { if (s.key === me.id) return; try { const p = JSON.parse(s.val().json); presence({ type:"hello", reply: true, quiet: !ready, person: p.person, extras: p.extras }); } catch {} };
+  pres.on("child_added", seen); pres.on("child_changed", seen);
+  pres.on("child_removed", s => presence({ type:"bye", pid: s.key }));
+  pres.once("value", () => { ready = true; });
+  let netT = null, wasOn = false;
+  db.ref(".info/connected").on("value", s => {
+    clearTimeout(netT);
+    if (s.val()){
+      $("netChip").hidden = true;
+      mine.onDisconnect().remove();
+      hello();
+      if (wasOn) plainToast("Back online. Everything is synced.");
+      wasOn = true;
+    } else if (wasOn) netT = setTimeout(() => { $("netChip").hidden = false; }, 2000);
+  });
+  addEventListener("pagehide", () => { try { mine.remove(); } catch {} });
 }
 
 function apply(a, local){
@@ -1227,6 +1331,10 @@ function apply(a, local){
 
 /* Presence (who's in the room) */
 function hello(reply){
+  if (cloud()){
+    if (room) room.child("presence/" + me.id).set({ json: JSON.stringify({ person:{ id:me.id, name:me.name, color:me.color }, extras: isFac() ? sims : [] }) }).catch(() => {});
+    return;
+  }
   try { bc && bc.postMessage({ type:"hello", reply: !!reply, person:{ id:me.id, name:me.name, color:me.color }, extras: isFac() ? sims : [] }); } catch {}
 }
 function presence(a){
@@ -1234,10 +1342,11 @@ function presence(a){
   if (!a.person || a.person.id === me.id) return;
   const isNew = !remotes.has(a.person.id);
   remotes.set(a.person.id, { person: a.person, extras: a.extras || [], seen: Date.now() });
-  if (isNew){ plainToast(`${a.person.name} joined`); if (!a.reply) hello(true); }
+  if (isNew){ if (!a.quiet) plainToast(`${a.person.name} joined`); if (!a.reply) hello(true); }
   renderAvatars();
 }
 function prunePresence(){
+  if (cloud()) return; // the database removes people who drop off
   const now = Date.now(); let changed = false;
   for (const [k, r] of remotes) if (now - r.seen > 12000){ remotes.delete(k); changed = true; }
   if (changed) renderAvatars();
@@ -1737,6 +1846,7 @@ function oldRockToast(card){
 }
 function plainToast(text){ const d = pushToast("var(--star)", text); setTimeout(() => fade(d), 3200); announce(text); }
 function pushToast(color, text){
+  if (replaying) return h("div", {}, h("span"));
   const box = $("toasts");
   while (box.children.length >= 1) box.firstChild.remove(); // one toast at a time keeps the sky quiet
   const d = h("div", { class:"toast" }, h("span", { class:"dot", style:`background:${color}` }), h("span", { text }));
@@ -1745,7 +1855,7 @@ function pushToast(color, text){
 }
 function fade(d){ d.style.opacity = 0; setTimeout(() => d.remove(), 400); }
 let announceT = 0;
-function announce(msg){ const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
+function announce(msg){ if (replaying) return; const now = Date.now(); if (now - announceT < 1500) return; announceT = now; $("live").textContent = msg; }
 
 let crewOpen = false;
 document.addEventListener("click", e => { if (crewOpen && !e.target.closest("#crewList")){ crewOpen = false; renderAvatars(); } });
@@ -2710,6 +2820,24 @@ $("createForm").onsubmit = async e => {
   const t = { id, name: $("teamName").value.trim() || "Our team", created: Date.now(), fkHash, config: {...DEFAULTS}, sessions: [], current: newSession({}) };
   sset("rtw-team-" + id, t);
   sset("rtw-fk-" + fkHash, id);
+  if (cloud()){
+    const btn = e.submitter || $("createForm").querySelector("button"); btn.disabled = true; btn.textContent = "Creating…";
+    try {
+      await withTimeout(Promise.all([
+        db.ref("rooms/" + id + "/snap").set({ json: JSON.stringify(t), applied: "[]", savedAt: firebase.database.ServerValue.TIMESTAMP }),
+        db.ref("rooms/" + fkHash + "/team").set(id)
+      ]), 10000);
+    } catch (err){
+      btn.disabled = false; btn.textContent = "Create team";
+      console.warn("Create team failed", err);
+      const denied = /permission/i.test(err && (err.code || err.message) || "");
+      $("landingMsg").hidden = false;
+      $("landingMsg").textContent = denied
+        ? "The database refused to save (permission denied). Check the Realtime Database rules in Firebase."
+        : "Couldn't reach the database. Check your internet and try again.";
+      return;
+    }
+  }
   location.hash = "#/f/" + key;
 };
 addEventListener("hashchange", () => location.reload());
@@ -2727,18 +2855,38 @@ function askName(){
   });
 }
 
+// Loads the room: from the database when connected, else this browser's last copy
+async function openRoom(id){
+  if (cloud()){
+    try {
+      const snap = await cloudGet("rooms/" + id + "/snap");
+      if (snap){ adoptSnap(snap); room = db.ref("rooms/" + id); return true; }
+    } catch (e){ console.warn("Couldn't load the room, using this browser's copy", e); }
+    team = sget("rtw-team-" + id);
+    if (!team) return false;
+    (sget("rtw-applied-" + id) || []).forEach(markApplied);
+    room = db.ref("rooms/" + id);
+    return true;
+  }
+  team = sget("rtw-team-" + id);
+  return !!team;
+}
 async function init(){
   me.id = sget("rtw-pid", true) || rid(9);
   sset("rtw-pid", me.id, true);
   let m;
+  cloudInit();
   if ((m = location.hash.match(/^#\/t\/([\w-]{16,})$/))){
-    team = sget("rtw-team-" + m[1]);
-    if (!team) return showLanding("This team link isn't stored in this browser. (In the live version it loads from the server.)");
+    if (!(await openRoom(m[1]))) return showLanding(cloud() ? "Couldn't find this retro room. Check the link, or your internet connection." : "This team link isn't stored in this browser.");
     role = "participant";
   } else if ((m = location.hash.match(/^#\/f\/([\w-]{16,})$/))){
-    const tid = sget("rtw-fk-" + await sha(m[1]));
-    team = tid && sget("rtw-team-" + tid);
-    if (!team) return showLanding("This facilitator link isn't recognised in this browser.");
+    const fh = await sha(m[1]);
+    let tid = null;
+    if (cloud()) try { tid = await cloudGet("rooms/" + fh + "/team"); } catch {}
+    tid ||= sget("rtw-fk-" + fh);
+    if (!tid || !(await openRoom(tid))) return showLanding(cloud() ? "Couldn't open this facilitator link. Check the link, or your internet connection." : "This facilitator link isn't recognised in this browser.");
+    if (team.fkHash !== fh) return showLanding("This facilitator link doesn't match its room.");
+    sset("rtw-fk-" + fh, tid);
     role = "facilitator"; fkey = m[1];
   } else {
     return showLanding();
@@ -2760,12 +2908,22 @@ function start(){
   document.body.classList.toggle("cards-collapsed", cardsCollapsed);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
-  try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
+  if (!cloud()) try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
   fitScene();
   rebuildAll(); renderAvatars();
   speed = model.target;
-  hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
-  addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
+  if (cloud()){
+    // Catch up on changes made since the saved copy, quietly, then go live
+    replaying = true;
+    withTimeout(room.child("ops").orderByKey().startAt(opsSince()).once("value"), 8000).catch(() => {}).then(() => {
+      replaying = false; $("toasts").replaceChildren(); lastToast = null;
+      rebuildAll(); speed = model.target;
+    });
+    cloudStart();
+  } else {
+    hello(); setInterval(hello, 4000); setInterval(prunePresence, 3000);
+    addEventListener("pagehide", () => { try { bc && bc.postMessage({ type:"bye", pid: me.id }); } catch {} });
+  }
   requestAnimationFrame(frame);
   maybeTour();
 }
