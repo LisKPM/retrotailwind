@@ -110,6 +110,12 @@ header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:
 .av.more{background:#2a3d5c;color:var(--ui-text);cursor:pointer;font:inherit;font-size:12px;font-weight:700;padding:0;width:auto;min-width:28px;border-radius:14px;padding:0 6px}
 .av.more:hover,.av.more[aria-expanded=true]{background:#3a5280}
 #avatars{position:relative}
+/* the person's name, shown as soon as you hover an avatar (the native title was slow and got lost on redraws) */
+#avatars .av[data-name]{position:relative;cursor:default}
+#avatars .av[data-name]::after{content:attr(data-name);position:absolute;top:calc(100% + 8px);right:0;white-space:nowrap;z-index:60;
+  padding:5px 10px;border-radius:8px;background:#0a1426;border:1px solid var(--ui-line);color:var(--ui-text);
+  font:600 13px/1.3 Lato,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .1s}
+#avatars .av[data-name]:hover::after,#avatars .av[data-name]:focus-visible::after{opacity:1}
 #crewList{position:absolute;top:calc(100% + 8px);right:0;z-index:40;min-width:200px;max-height:60vh;overflow:auto;background:#101c33;
   border:1px solid var(--ui-line);border-radius:12px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 #crewList h3{margin:2px 6px 6px;font-size:12px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
@@ -182,6 +188,10 @@ body.is-fac .step:hover{color:var(--ui-text)}
 .compose{display:grid;gap:10px;padding:2px 0 8px}
 .seg.big label{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;font-weight:600}
 .seg.big .ico{display:grid;place-items:center;height:26px}
+.seg.big label{position:relative}
+.seg.big .type-tip{position:absolute;top:6px;right:6px}
+.seg.big .type-tip::after{top:calc(100% + 6px);right:-6px;left:auto;width:240px;font-weight:400}
+.type-note{margin:0;font-size:13.5px;color:var(--star)}
 .type-ico{display:block;flex:none}
 ul.tour-list li.tour-type{list-style:none;margin-left:-20px;display:grid;grid-template-columns:20px 1fr;column-gap:10px;align-items:baseline}
 ul.tour-list li.tour-type .type-ico{align-self:center}
@@ -314,7 +324,17 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 .sea-glyph{width:30px;height:15px;flex:none;stroke:var(--sea-c,#5fd28a)}
 body .head-speedo{gap:8px}
 button.sea-word{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ui-text);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
-.sea-now{margin:8px 16px 10px;font-size:13px;color:var(--ui-muted)}
+.sea-help{margin:0 16px 12px;padding:12px 0 0;border-top:1px solid var(--ui-line)}
+.sea-help h3{margin:0 0 4px;font-size:14px}
+.sea-rule{margin:0 0 10px;font-size:13.5px;color:var(--ui-muted);line-height:1.5}
+.sea-rule span{white-space:nowrap}
+.sea-scale{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.sea-scale li{display:grid;grid-template-columns:34px 64px 1fr;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;font-size:13px;color:var(--ui-muted);border:1px solid transparent}
+.sea-scale li b{color:var(--ui-text);font-weight:600}
+.sea-scale li svg{width:30px;height:15px}
+.sea-scale li.now{background:rgba(255,255,255,.07);border-color:var(--ui-line);color:var(--ui-text)}
+.sea-scale li.now b::after{content:"now";display:block;font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--star)}
+.sea-foot{margin:10px 0 0;font-size:12.5px;color:var(--ui-muted)}
 .help-btn{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700}
 #helpPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);max-height:calc(100vh - 32px);overflow:auto;width:min(420px,calc(100vw - 24px));z-index:26;
   background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:var(--radius);box-shadow:0 18px 50px rgba(0,0,0,.45)}
@@ -406,8 +426,8 @@ ul.checklist li.done{color:var(--ui-muted)}
 ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:transparent}
 
 /* toasts */
-#toasts{position:fixed;top:60px;right:16px;display:grid;justify-items:end;gap:6px;z-index:25;pointer-events:none;max-width:min(360px,calc(100vw - 32px))}
-.toast{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:99px;padding:6px 14px;font-size:13.5px;
+#toasts{position:fixed;top:60px;right:16px;display:grid;justify-items:end;gap:6px;z-index:25;pointer-events:none;max-width:min(420px,calc(100vw - 32px))}
+.toast{background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:99px;padding:9px 18px;font-size:15.5px;font-weight:600;
   display:flex;align-items:center;gap:8px;animation:toastIn .25s ease;transition:opacity .4s}
 @keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
@@ -636,10 +656,15 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
   <ul class="help-list">
     <li><b>Speed:</b> every card in Sail and every vote in Navigate makes the ship faster. Red means most of the crew is still quiet.</li>
-    <li><b>Sea:</b> how the sprint felt. Icebergs make it rough, wind calms it. An iceberg that comes back turns grey, then black.</li>
     <li><b>Harbor:</b> every voted iceberg or torn sail needs an action and an owner. Then it melts or gets patched and the way is clear.</li>
   </ul>
-  <p class="sea-now" id="seaNow"></p>
+  <!-- Sea, explained as a scale (Lis 2026-11-20: cleaner, clearer) -->
+  <section class="sea-help" aria-labelledby="seaHelpTitle">
+    <h3 id="seaHelpTitle">Sea: how the sprint felt</h3>
+    <p class="sea-rule"><span><b style="color:var(--wind)">Wind</b> calms it.</span> <span><b style="color:var(--rock)">Icebergs</b> and <b style="color:var(--barnacle)">torn sails</b> make it rougher.</span> <span>Votes make a card count more.</span></p>
+    <ol class="sea-scale" id="seaScale"></ol>
+    <p class="sea-foot">The sea never changes speed. Only the crew taking part does.</p>
+  </section>
   <p style="margin:0;padding:0 16px 14px"><button class="btn small" type="button" id="showTour">Show the tour</button></p>
 </div>
 
@@ -1863,14 +1888,13 @@ function toast(type, name){
   const who = name || "Someone";
   const now = Date.now();
   if (lastToast && lastToast.type === type && now - lastToast.t < C.TOAST_MERGE_MS && lastToast.el.isConnected){
-    lastToast.names.add(who); lastToast.count++; lastToast.t = now;
-    const first = [...lastToast.names][0];
-    lastToast.text.textContent = `${first} and ${lastToast.count - 1} other${lastToast.count>2?"s":""} ${VERB[type]}`;
+    lastToast.t = now; // Lis 2026-11-20: no "and N others", just who added it (it counted cards, not people)
+    lastToast.text.textContent = `${who} ${VERB[type]}`;
     clearTimeout(lastToast.timer); const box = lastToast.el; lastToast.timer = setTimeout(() => fade(box), 2600);
     return;
   }
   const d = pushToast(`var(--${type})`, `${who} ${VERB[type]}`);
-  lastToast = { type, el: d, text: d.lastChild, names: new Set([who]), count: 1, t: now, timer: setTimeout(() => fade(d), 2600) };
+  lastToast = { type, el: d, text: d.lastChild, t: now, timer: setTimeout(() => fade(d), 2600) };
   announce(`${who} ${VERB[type]}`);
 }
 function oldRockToast(card){
@@ -1894,12 +1918,19 @@ function announce(msg){ if (replaying) return; const now = Date.now(); if (now -
 let crewOpen = false;
 document.addEventListener("click", e => { if (crewOpen && !e.target.closest("#crewList")){ crewOpen = false; renderAvatars(); } });
 document.addEventListener("keydown", e => { if (crewOpen && e.key === "Escape"){ crewOpen = false; renderAvatars(); } });
+let avKey = "";
+const avName = p => p.id === me.id ? `${p.name || "?"} (you)` : (p.name || "?");
 function renderAvatars(){
-  const box = $("avatars"); box.innerHTML = "";
+  const box = $("avatars");
   const all = people();
   const max = innerWidth < 760 ? 3 : innerWidth < 1180 ? 4 : 6; // fewer avatars on narrower windows so the step bar never overlaps them
+  // Rebuilding while someone hovers kills the name tip, so only redraw when the crew really changed (Lis 2026-11-20)
+  const key = JSON.stringify([max, crewOpen, all.map(p => [p.id, p.name, p.color])]);
+  const same = key === avKey; avKey = key;
+  if (!same){
+  box.innerHTML = "";
   all.slice(0, max).forEach(p => {
-    box.appendChild(h("div", { class:"av", style:`background:${p.color}`, title: p.id === me.id ? `${p.name} (you)` : p.name, text: (p.name || "?").slice(0,1).toUpperCase() }));
+    box.appendChild(h("div", { class:"av", style:`background:${p.color}`, tabindex:"0", "data-name": avName(p), "aria-label": avName(p), text: (p.name || "?").slice(0,1).toUpperCase() }));
   });
   if (all.length > max){
     // "+N" opens the full crew list (names only, never who has written or voted)
@@ -1911,8 +1942,9 @@ function renderAvatars(){
   if (crewOpen) box.appendChild(h("div", { id:"crewList", role:"dialog", "aria-label":"Crew" },
     h("h3", { text:`Crew · ${all.length}` }),
     h("ul", {}, all.map(p => h("li", {}, h("span", { class:"av", style:`background:${p.color}`, text:(p.name || "?").slice(0,1).toUpperCase() }),
-      h("span", { text: p.id === me.id ? `${p.name} (you)` : p.name }))))));
-  if (S && S.phase === 0) renderStage();
+      h("span", { text: avName(p) }))))));
+  }
+  if (S && S.phase === 0 && !same) renderStage();
   box.setAttribute("aria-label", `${all.length} ${all.length===1?"person":"people"} in the room`);
   if (S) recompute(); // speed depends on how many people are present
   if (S && isFac() && S.phase < 4 && all.length > (S.peakPresent || 0)) dispatch({ type:"present", n: all.length });
@@ -2112,10 +2144,15 @@ const STEP_MIN_KEYS = [null, "SAIL_MIN", "NAV_MIN", "COURSE_MIN", "HARBOR_MIN"];
 const stepMin = p => STEP_MIN_KEYS[p] ? C[STEP_MIN_KEYS[p]] : 0;
 const NEXT = ["Cast off", "Next: Navigate", "Next: Set course", "Next: Harbor", "Save and finish"];
 const TYPES = [["wind","Wind"],["rock","Iceberg"],["barnacle","Torn sail"]];
+const TYPE_TIPS = {
+  wind: "What helped us this sprint: a win, a good habit, help from someone. Wind calms the sea.",
+  rock: "What blocked us or put the sprint at risk. Icebergs make the sea rough, and come back darker if nobody fixes them.",
+  barnacle: "What could have gone better: small friction in how we work. Each one tears the sails a little.",
+};
 const TOP_N = 5;
 const stage = $("stage");
 const myCards = new Set();
-let builtPhase = null, composeType = "wind";
+let builtPhase = null, composeType = null; // Lis 2026-11-20: nothing preselected, each person picks a type
 
 /* Harbor rule (Lis, 2026-11-20): the ship can't enter Harbor while any problem the crew voted on
    has no action item with an owner. Owned actions melt icebergs and patch sails, clearing the way. */
@@ -2215,17 +2252,21 @@ function composer(){
   const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name]) => {
     const inp = h("input", { type:"radio", name:"ctype", id:"ct-" + t, value: t });
     inp.checked = composeType === t;
-    inp.onchange = () => { composeType = t; };
-    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico" }, typeIcon(t, 26)), name)];
+    inp.onchange = () => { composeType = t; note.hidden = true; };
+    return [inp, h("label", { for:"ct-" + t, style:`--c:var(--${t})` }, h("span", { class:"ico" }, typeIcon(t, 26)), name,
+      h("span", { class:"tip type-tip", tabindex:"0", role:"note", "aria-label": TYPE_TIPS[t], "data-tip": TYPE_TIPS[t], text:"i",
+        onclick: e => e.preventDefault() }))];
   }));
+  const note = h("p", { class:"type-note", role:"alert", hidden:true, text:"Pick a card type first: Wind, Iceberg or Torn sail." });
   const text = h("input", { class:"text-in", id:"cardText", maxlength:200, placeholder:"What happened?", "aria-label":"Card text", autocomplete:"off" });
   const anon = h("input", { type:"checkbox", id:"anon" });
-  const form = h("form", { class:"compose" }, seg,
+  const form = h("form", { class:"compose" }, seg, note,
     h("div", { class:"compose-row" }, text, h("button", { class:"add-btn", type:"submit", text:"Add" })),
     h("label", { class:"anon" }, anon, " Anonymous"));
   form.onsubmit = e => {
     e.preventDefault();
     const v = text.value.trim(); if (!v || S.phase !== 1) return;
+    if (!composeType){ note.hidden = false; return; }
     const card = markReturning(makeCard(composeType, v, me.id, me.name, anon.checked));
     myCards.add(card.id);
     dispatch({ type:"card.add", by: me.id, card });
@@ -2993,7 +3034,12 @@ $("copyLink").onclick = async () => {
 let helpOpener = null;
 function renderSeaHelp(){
   if (!S) return;
-  $("seaNow").textContent = `The sea right now: ${model.sea.word}. ${SEA_MEANING[model.sea.word]}`;
+  const now = model.sea.word;
+  $("seaScale").replaceChildren(...SEA_WORDS.map(([, w]) => {
+    const g = el("svg", { viewBox:"0 0 40 20", "aria-hidden":"true" });
+    el("path", { d: SEA_GLYPHS[w], fill:"none", stroke: SEA_COLORS[w], "stroke-width":2.2, "stroke-linecap":"round", "stroke-linejoin":"round" }, g);
+    return h("li", { class: w === now ? "now" : "", "aria-current": w === now ? "true" : null }, g, h("b", { text: w }), h("span", { text: SEA_MEANING[w] }));
+  }));
 }
 function setHelp(open, opener){
   if (open) renderSeaHelp();
