@@ -1598,7 +1598,7 @@ const ICE_LOOK = {
   black: ["#1c2127", "#d7e6ef", "#2e353d", "#0f1317", .75],
 };
 // Lis 2026-11-20: votes must make an iceberg clearly bigger (+25% per vote, up to 8 votes = 3x)
-const ICE_VOTE_GROW = .25, ICE_VOTE_CAP = 8;
+const ICE_VOTE_GROW = .25, ICE_VOTE_CAP = 8, MAX_ICEBERGS = 10;
 const iceBase = c => 1.25 * ICE_STAGE_SIZE[iceStage(c)];
 const iceScale = c => Math.min(4.6, iceBase(c) * (1 + Math.min(ICE_VOTE_CAP, totalVotes(c)) * ICE_VOTE_GROW));
 function renderRocks(newId){
@@ -1608,20 +1608,36 @@ function renderRocks(newId){
   const open = S.cards.filter(c => (c.type === "rock" || c.returned) && isOpenProblem(c)).sort(order);
   // biggest in front, closest to the ship; when the front row is full the rest sit further away
   const right = Math.min(1575, visibleSky().right - 24);
-  let fx = 1130, bx = 1160; const placed = []; // start past the bowsprit
+  let fx = 1130; // start past the bowsprit
   // Shrink every iceberg by the same amount so they all fit side by side in the front row
   // (no small one hidden behind a big one). Sizes stay in proportion; the back row is a last resort.
-  const shown = open.slice(0, C.MAX_ROCK_SPRITES);
-  // fit on the unvoted size, so a vote never shrinks the others back: voted icebergs really grow,
-  // and if the row overflows the smallest ones move to the back row
-  const need = shown.reduce((a, c) => a + 2 * ICE_HALF * iceBase(c) + 8, 0);
-  const fit = need > 0 ? clamp((right - fx) / need, .5, 1) : 1;
-  for (const c of open){
-    if (placed.length >= C.MAX_ROCK_SPRITES) break;
-    const sc = iceScale(c) * fit, half = ICE_HALF * sc;
-    if (fx + 2 * half <= right){ placed.push({ c, x: fx + half, y: 620, sc, back: false }); fx += 2 * half + 8; continue; }
-    const h2 = half * .72;
-    if (bx + 2 * h2 <= right){ placed.push({ c, x: bx + h2, y: 568, sc: sc * .72, back: true }); bx += 2 * h2 + 6; }
+  // Lis 2026-11-20: up to 10 icebergs on screen, then "+N more". Voted icebergs sit in front and grow
+  // with votes; the others sit further back, in the open water to the right of them, small but visible.
+  const shown = open.slice(0, MAX_ICEBERGS), placed = [];
+  const W = right - fx, anyVoted = shown.some(c => totalVotes(c) > 0);
+  const budget = anyVoted && shown.length > 1 ? W * .62 : W; // leave open water for the ones behind
+  const front = [], rest = [];
+  let used = 0;
+  for (const c of shown){
+    const w = 2 * ICE_HALF * iceScale(c) + 8;
+    if (!rest.length && (!front.length || used + w <= budget) && (!anyVoted || totalVotes(c) > 0 || !front.length)){ front.push(c); used += w; }
+    else rest.push(c);
+  }
+  const f = Math.min(1, budget / used); // shrink the front row together, keeping vote proportions
+  for (const c of front){
+    const sc = iceScale(c) * f, half = ICE_HALF * sc;
+    placed.push({ c, x: fx + half, y: 620, sc, back: 0 }); fx += 2 * half + 8 * f;
+  }
+  if (rest.length){
+    const free = Math.max(right - fx, W * .3);
+    const need = rest.reduce((a, c) => a + 2 * ICE_HALF * iceScale(c) + 6, 0);
+    const bs = clamp(Math.min(.62, 1.9 * free / need), .2, .62);
+    const rows = [{ y: 572, x: right, s: bs }, { y: 550, x: right, s: bs * .85 }];
+    for (const c of rest){
+      const row = rows.find(r => r.x - 2 * ICE_HALF * iceScale(c) * r.s >= right - free) || rows[1];
+      const sc = iceScale(c) * row.s, half = ICE_HALF * sc;
+      placed.push({ c, x: row.x - half, y: row.y, sc, back: row === rows[0] ? 1 : 2 }); row.x -= 2 * half + 4;
+    }
   }
   const keep = new Set(placed.map(p => p.c.id));
   for (const [id, r] of rockEls){
@@ -1660,7 +1676,7 @@ function renderRocks(newId){
     r.g.setAttribute("opacity", r.hidden ? 0 : c.scraped ? .7 : 1);
   }
   // the further row behind the front row
-  [true, false].forEach(back => placed.forEach(p => { if (p.back === back) g.appendChild(rockEls.get(p.c.id).g); }));
+  [2, 1, 0].forEach(back => placed.forEach(p => { if (p.back === back) g.appendChild(rockEls.get(p.c.id).g); }));
   let more = g.querySelector(".more");
   if (open.length > placed.length){
     if (!more){
@@ -1669,7 +1685,7 @@ function renderRocks(newId){
       el("text", { x: 12, y: -1, fill: "#eef3fa", "font-size": 16, "font-weight": 600 }, more);
     }
     more.querySelector("text").textContent = `+${open.length - placed.length} more`;
-    more.setAttribute("transform", `translate(${Math.min(fx + 4, right - 100).toFixed(1)},574)`); // above the front wave
+    more.setAttribute("transform", `translate(${(right - 100).toFixed(1)},520)`); // above the far icebergs
     g.appendChild(more);
   } else if (more) more.remove();
   return made;
