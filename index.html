@@ -519,6 +519,8 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <g id="splashes"></g>
   <path id="wave1" fill="#2f6f8f" opacity=".85"/>
   <path id="wave2" fill="#1d4e72" opacity=".9"/>
+  <!-- the ship's name drawn again over the front waves, so a rough sea never hides it -->
+  <g id="nameFront" aria-hidden="true"><use href="#hullName"/></g>
   <g id="rain" stroke="#c9d6e3" stroke-width="2" stroke-linecap="round" opacity="0"></g>
   <rect id="lightning" x="-3000" y="-3000" width="7600" height="7000" fill="#eef4ff" opacity="0"/>
 </svg>
@@ -1298,6 +1300,7 @@ function apply(a, local){
       if (a.trends) team.trends = a.trends;
       history = []; centerMode = null; myCards.clear();
       rebuildAll();
+      speed = model.target; // a new retro starts from the drift speed, not where the last one ended
       plainToast("New retro started at the Dock");
       break;
   }
@@ -1896,7 +1899,8 @@ function badge(outcome, inline){
 }
 function logbookSection(includeCurrent, noHeading){
   const rows = [...team.sessions];
-  if (includeCurrent) rows.push({ ...currentSummary(), current: true });
+  // Once the ship docks the voyage is already saved in team.sessions: don't show it twice
+  if (includeCurrent && !S.landed) rows.push({ ...currentSummary(), current: true });
   if (!rows.length) return [h("h3", { text:"Logbook" }), h("p", { class:"muted", text:"No past voyages yet. They appear here after each Harbor." })];
   return [
     noHeading ? null : h("h3", { text:"Logbook" }),
@@ -2005,7 +2009,7 @@ function nextStarSection(){
       const on = ns && ns.rockId === c.id;
       return h("button", { class:"btn small", type:"button", "aria-pressed": String(!!on),
         onclick: () => dispatch({ type:"nextStar", rerender:true, nextStar: on ? { ...ns, rockId:null, rock:null } : { text: ns?.text || "", rockId: c.id, rock: c.text } }) },
-        h("span", { class:"radio", "aria-hidden":"true" }), h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text:`${totalVotes(c)} votes` }));
+        h("span", { class:"radio", "aria-hidden":"true" }), h("span", { class:"dot", style:`background:var(--${c.type})` }), h("span", { text: c.text }), h("span", { class:"v", text: plural(totalVotes(c), "vote") }));
     })));
   } else {
     out.push(h("p", { class:"muted", text:"No icebergs this retro. You can still write a star; the team vote will decide next time." }));
@@ -2269,6 +2273,13 @@ function tile(c, mode){
 }
 
 /* Navigate: the facilitator drags a card onto a duplicate in the same column to merge them */
+stage.addEventListener("dragover", e => {
+  if (!dragId) return;
+  const body = stage.querySelector(".stage-body"); if (!body) return;
+  const r = body.getBoundingClientRect(), edge = 70;
+  if (e.clientY > r.bottom - edge) body.scrollTop += Math.ceil((e.clientY - (r.bottom - edge)) / 3);
+  else if (e.clientY < r.top + edge) body.scrollTop -= Math.ceil(((r.top + edge) - e.clientY) / 3);
+});
 let dragId = null, renameId = null; // this tab only: card being dragged, merged card being renamed
 function dragMerge(li, c){
   li.draggable = true;
@@ -2577,6 +2588,7 @@ function tickSilent(){
    ================================================================ */
 let dock = null, dockSide = "left"; // dock: 0 at sea, 1 tied up. Dock (step 1) leaves from a quay behind the ship; Harbor (step 5) arrives at one ahead
 let last = performance.now(), t = 0, sink = 0, fill = 0, rough = 0, shipX = 800, lastSample = 0, nsScale = .7, sampleN = 0;
+const nameFront = $("nameFront");
 const boatWrap = $("boatWrap"), flag = $("flag"), wake = $("wake"), wake2 = $("wake2");
 // [mast x, top y, bottom y, half width]: main course and topsail, fore course and topsail
 // [mast x, yard y, foot y, half width]: course, topsail and topgallant on each mast
@@ -2644,7 +2656,9 @@ function frame(now){
     : `translate(${(590 - (1 - dk) * 1400).toFixed(1)},0) scale(-1,1)`);
   $("seaRocks").setAttribute("opacity", (1 - dk).toFixed(3)); // icebergs fall behind as the ship comes in
   shipX += (shipTarget - shipX) * (reduced ? 1 : 1 - Math.exp(-dt / 1.6));
-  boatWrap.setAttribute("transform", `translate(${shipX.toFixed(1)},${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`);
+  const boatT = `translate(${shipX.toFixed(1)},${545 + sink + bob + sinkKick * 14}) rotate(${tilt})`;
+  boatWrap.setAttribute("transform", boatT);
+  nameFront.setAttribute("transform", boatT);
 
   const fillTarget = (model.sea.windShare * .85 + gustBoost * .35) * (1 - dk * .85); // sails fill with the share of wind, and go slack in harbor
   fill += (fillTarget - fill) * (1 - Math.exp(-dt / .35));
@@ -2742,7 +2756,7 @@ function askName(){
     $("nameForm").onsubmit = e => {
       e.preventDefault();
       const n = $("nameIn").value.trim(); if (!n) return;
-      sset("rtw-name", n); $("nameDlg").hidden = true; resolve(n);
+      sset("rtw-name", n); sset("rtw-name", n, true); $("nameDlg").hidden = true; resolve(n);
     };
   });
 }
@@ -2786,7 +2800,7 @@ async function init(){
   sset("rtw-last", location.hash);
   S = team.current;
   C = loadConfig(team.config);
-  me.name = sget("rtw-name") || "";
+  me.name = sget("rtw-name", true) || ""; // per tab, so two tabs in one browser can be two people
   if (!me.name) me.name = await askName();
   me.color = COLORS[[...me.id].reduce((a,ch) => a + ch.charCodeAt(0), 0) % COLORS.length];
   start();
