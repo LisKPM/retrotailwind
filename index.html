@@ -58,6 +58,30 @@ body.cards-collapsed #stage{top:auto!important}
 body.cards-collapsed #stage .stage-body,body.cards-collapsed #stage .step-hint{display:none}
 @media (max-width:760px){ body.cards-collapsed{--sea-h:calc(100vh - 220px)} }
 .collapse-btn{white-space:nowrap}
+/* Before anyone joins, no speed widget behind the landing or name dialog */
+body:not(.aboard) #speedo,body:not(.aboard) #speedHidden{display:none!important}
+/* Header menu: Copy link, Logbook, Tune, How it works */
+.menu-wrap{position:relative}
+#menu{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;display:grid;padding:6px;z-index:30;
+  background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:var(--radius);box-shadow:0 14px 40px rgba(0,0,0,.4)}
+#menu[hidden]{display:none}
+.menu-item{all:unset;box-sizing:border-box;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+.menu-item:hover,.menu-item:focus-visible{background:rgba(255,255,255,.08)}
+/* Sea: one line under the speed */
+.sea-line{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ui-muted);margin-top:2px}
+#speedHidden .sea-line{display:inline-flex;margin:0}
+.sea-line .sea-word{font-family:Caveat,'Segoe Print','Bradley Hand',cursive;font-size:18px;line-height:1;text-decoration:none;color:#f5ead6}
+.sea-line .sea-glyph{width:22px;height:11px}
+/* Dock: ship name and timing on one row */
+.ship-row details.timing{margin-left:auto;font-size:14px}
+.ship-row details.timing summary{cursor:pointer;color:var(--ui-muted);list-style:none;display:inline-block}
+.ship-row details.timing summary::-webkit-details-marker{display:none}
+.ship-row details.timing summary::after{content:" ▾"}
+.ship-row details.timing[open] summary::after{content:" ▴"}
+.ship-row details.timing .plan-grid{position:absolute;margin-top:6px;padding:10px 12px;background:var(--ui-bg-solid);border:1px solid var(--ui-line);border-radius:var(--radius);z-index:5;min-width:280px;right:18px}
+.ship-row{position:relative}
+details.more-problems{margin-top:6px}
+details.more-problems summary{cursor:pointer;color:var(--ui-muted);font-size:13.5px;padding:4px 2px}
 /* Navigate and Set course, expanded: the sea becomes a slim strip (the ship stays in view) and the cards get the rest
    of the screen at full width, so far-apart cards can be dragged onto each other */
 body.cards-expanded{--sea-h:24vh}
@@ -274,22 +298,10 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
   background:var(--ui-bg);padding:6px 8px 6px 12px;border-radius:99px;z-index:12;display:flex;align-items:center;gap:8px}
 .sea-word{color:var(--ui-text);font-weight:600}
 :root{--zone-red:#e5675a;--zone-yellow:#e8c37a;--zone-green:#5fd28a}
-#seaBox{position:fixed;right:16px;bottom:16px;z-index:12;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ui-muted);
-  background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:99px;padding:6px 12px}
 /* Sea pill: a hand-drawn wave that gets choppier with the mood, written like a captain's logbook (Caveat) */
 .sea-glyph{width:30px;height:15px;flex:none;stroke:var(--sea-c,#5fd28a)}
-#seaBox .sea-word{font-family:Caveat,'Segoe Print','Bradley Hand',cursive;font-size:22px;font-weight:600;line-height:1;text-decoration:none;color:#f5ead6}
-#seaBox .sea-word:hover,#seaBox .sea-word:focus-visible{text-decoration:underline;text-underline-offset:3px}
-#seaBox .sea-label{font-family:Caveat,'Segoe Print','Bradley Hand',cursive;font-size:18px;color:var(--ui-muted);margin-left:-3px}
 body .head-speedo{gap:8px}
-body .head-speedo #seaBox{position:static;background:rgba(255,255,255,.05);border:0;padding:8px 12px}
 button.sea-word{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ui-text);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
-.help-h{margin:0;padding:6px 16px 0;font-size:12.5px;color:var(--ui-muted);text-transform:uppercase;letter-spacing:.5px}
-ol.sea-scale{list-style:none;margin:6px 0 0;padding:0 12px;display:grid;gap:3px}
-ol.sea-scale li{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:5px 8px;border-radius:8px;font-size:13.5px}
-ol.sea-scale li span{color:var(--ui-muted)}
-ol.sea-scale li.now{background:rgba(127,214,194,.14);box-shadow:inset 0 0 0 1px rgba(127,214,194,.5)}
-ol.sea-scale li.now span{color:var(--ui-text)}
 .sea-now{margin:8px 16px 10px;font-size:13px;color:var(--ui-muted)}
 .help-btn{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700}
 #helpPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);max-height:calc(100vh - 32px);overflow:auto;width:min(420px,calc(100vw - 24px));z-index:26;
@@ -547,9 +559,15 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   </div>
   <div class="spacer"></div>
   <div id="avatars" aria-label="People in the room"></div>
-  <button class="btn" id="copyLink">Copy team link</button>
-  <button class="btn hide-sm" id="logBtn">Logbook</button>
-  <button class="btn fac-only hide-sm" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
+  <div class="menu-wrap">
+    <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu">☰ Menu</button>
+    <div id="menu" role="menu" hidden>
+      <button class="menu-item" role="menuitem" type="button" id="copyLink">Copy team link</button>
+      <button class="menu-item" role="menuitem" type="button" id="logBtn">Logbook</button>
+      <button class="menu-item fac-only" role="menuitem" type="button" id="tuneToggle" aria-expanded="false" aria-controls="tunePanel">Tune</button>
+      <button class="menu-item" role="menuitem" type="button" id="menuHelp">How it works</button>
+    </div>
+  </div>
 </header>
 
 
@@ -589,30 +607,25 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
   <div>
     <div class="knots"><span id="knots">0.0</span> <small>kn</small></div>
     <div class="band"><span class="band-speed"><span id="band">Barely moving</span></span></div>
+    <div class="sea-line"><svg class="sea-glyph" viewBox="0 0 40 20" aria-hidden="true"><path class="seaGlyph" d="M2,11 Q8,9 14,11 T26,11 T38,11" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea means">Calm</button> <span>sea</span></div>
   </div>
   <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button>
   <svg class="spark" width="140" height="44" viewBox="0 0 140 44" aria-label="Speed over time">
     <polyline id="spark" fill="none" stroke="var(--wind)" stroke-width="2" stroke-linejoin="round"/>
   </svg>
 </div>
-<!-- Sea health: its own indicator, apart from speed. Mood of the cards, never changes speed. -->
-<div id="seaBox" role="group" aria-label="Sea health"><svg class="sea-glyph" viewBox="0 0 40 20" aria-hidden="true"><path id="seaGlyph" d="M2,11 Q8,9 14,11 T26,11 T38,11" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea conditions mean">Calm</button><span class="sea-label">sea</span></div>
-<div id="speedHidden" hidden>Speed hidden by facilitator
-  <button class="btn small help-btn" type="button" aria-label="What speed and sea mean" aria-controls="helpPanel" aria-expanded="false">?</button></div>
+<!-- The sea (mood of the cards, never changes speed) rides as one line under the speed -->
+<div id="speedHidden" hidden>Speed hidden · <span class="sea-line"><svg class="sea-glyph" viewBox="0 0 40 20" aria-hidden="true"><path class="seaGlyph" d="M2,11 Q8,9 14,11 T26,11 T38,11" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><button type="button" class="sea-word" data-sea aria-controls="helpPanel" title="What the sea means">Calm</button> <span>sea</span></span>
+</div>
 
 <div id="helpPanel" role="dialog" aria-labelledby="helpTitle" hidden>
   <div class="panel-head"><h2 id="helpTitle">How the ship works</h2>
     <button class="btn small" id="helpClose" type="button" aria-label="Close">✕</button></div>
   <ul class="help-list">
-    <li><b>Speed</b> = how much of the crew is taking part: cards in Sail (60%) and people who vote in Navigate (40%). It only goes up. Action items don't change speed.</li>
-    <li><b>Sea</b> = how the sprint felt. Icebergs make it rough, wind calms it.</li>
-    <li><b>Icebergs melt</b> when someone owns an action for them. The more votes, the bigger the iceberg.</li>
-    <li>The more of the crew joins in, the <b>further ahead</b> the ship sails, with fuller sails and a longer wake. Red on the speedometer means most of the crew is still quiet.</li>
-    <li>A <b>bigger, grey iceberg</b> is a problem that came back. Back <b>3 retros in a row</b>, it turns <b>black</b>.</li>
-    <li>Neither speed nor sea is a score. Ships are never compared between teams.</li>
+    <li><b>Speed:</b> every card in Sail and every vote in Navigate makes the ship faster. Red means most of the crew is still quiet.</li>
+    <li><b>Sea:</b> how the sprint felt. Icebergs make it rough, wind calms it. An iceberg that comes back turns grey, then black.</li>
+    <li><b>Harbor:</b> every voted iceberg or torn sail needs an action and an owner. Then it melts or gets patched and the way is clear.</li>
   </ul>
-  <h3 class="help-h" id="seaHelpTitle">Sea conditions</h3>
-  <ol class="sea-scale" id="seaScale" aria-labelledby="seaHelpTitle"></ol>
   <p class="sea-now" id="seaNow"></p>
   <p style="margin:0;padding:0 16px 14px"><button class="btn small" type="button" id="showTour">Show the tour</button></p>
 </div>
@@ -651,6 +664,7 @@ ul.checklist li.done .tick{background:var(--wind);color:#0b1a2c;border-color:tra
     <div id="tourBody"></div>
     <div class="center-actions" style="margin-top:4px">
       <button class="btn ghost" type="button" id="tourSkip">Skip tour</button>
+      <button class="btn ghost" type="button" id="tourMore">Show me more</button>
       <span class="grow"></span>
       <button class="btn" type="button" id="tourBack">Back</button>
       <button class="btn primary" type="button" id="tourNext">Next</button>
@@ -778,7 +792,7 @@ const PHASES = [
   { key:"sail",   name:"Sail",       std:"Gather data",         hint:"Add wind, icebergs and torn sails. The boat reacts live." },
   { key:"nav",    name:"Navigate",   std:"Generate insights",   hint:"Vote on what matters most. Every person who votes adds speed." },
   { key:"course", name:"Set course", std:"Decide what to do",   hint:"Pick the problems to act on, then agree each action and its owner with the team." },
-  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star, tie the next one to an iceberg, save the voyage." },
+  { key:"harbor", name:"Harbor",     std:"Close",               hint:"Check the star and the action items, then save the voyage. The next star comes after." },
 ];
 /* Star outcomes. Old saves used reached / closer / not-yet; those still display. */
 const STAR_OUT = {
@@ -1790,8 +1804,8 @@ function renderSeaWord(){
   if (model.sea.word === seaShown) return;
   seaShown = model.sea.word;
   document.querySelectorAll("[data-sea]").forEach(e => e.textContent = seaShown);
-  $("seaBox").style.setProperty("--sea-c", SEA_COLORS[seaShown]);
-  $("seaGlyph").setAttribute("d", SEA_GLYPHS[seaShown]);
+  document.documentElement.style.setProperty("--sea-c", SEA_COLORS[seaShown]);
+  document.querySelectorAll(".seaGlyph").forEach(g => g.setAttribute("d", SEA_GLYPHS[seaShown]));
 }
 
 /* ================================================================
@@ -2042,7 +2056,8 @@ function nextStarSection(){
       : h("p", { class:"muted", text:"The facilitator is picking the next star from today's icebergs." }));
     return out;
   }
-  out.push(h("p", { class:"muted", text:"Pick the iceberg or torn sail you most want gone. Then write the star as what you'll see when it's gone." }));
+  out[0] = h("h3", { text:"Next star (optional)" });
+  out.push(h("p", { class:"muted", text:"Pick the problem you most want gone, and write what you'll see when it's gone." }));
   const top = problems(S.cards).slice().sort((a, b) => totalVotes(b) - totalVotes(a)).slice(0, 6);
   if (top.length){
     out.push(h("div", { class:"rockpick", role:"group", "aria-label":"Iceberg for the next star" }, top.map(c => {
@@ -2093,6 +2108,7 @@ function renderStage(force){
 }
 /* Hide or show the cards, to see the whole sea. A personal view setting, so it stays in this browser. */
 let cardsCollapsed = !!sget("rtw-cards-collapsed");
+const collapseOn = () => cardsCollapsed && S && S.phase >= 1 && S.phase <= 3;
 function collapseButton(){
   return h("button", { class:"btn small ghost collapse-btn", type:"button", "aria-controls":"stage", "aria-expanded": String(!cardsCollapsed),
     text: cardsCollapsed ? "Show cards ▴" : "Hide cards ▾", onclick: () => setCollapsed(!cardsCollapsed) });
@@ -2120,7 +2136,7 @@ function applyExpanded(){
 }
 function setCollapsed(v){
   cardsCollapsed = v; sset("rtw-cards-collapsed", v);
-  document.body.classList.toggle("cards-collapsed", v);
+  document.body.classList.toggle("cards-collapsed", collapseOn());
   applyExpanded();
   const b = stage.querySelector(".collapse-btn");
   if (b){ b.textContent = v ? "Show cards ▴" : "Hide cards ▾"; b.setAttribute("aria-expanded", String(!v)); }
@@ -2129,8 +2145,9 @@ function setCollapsed(v){
 function buildStage(p){
   const fac = isFac();
   stage.className = "st-" + PHASES[p].key;
-  document.body.append($("speedo"), $("speedHidden"), $("seaBox")); // keep the speedometer safe while the box is rebuilt
+  document.body.append($("speedo"), $("speedHidden")); // keep the speedometer safe while the box is rebuilt
   stage.innerHTML = "";
+  document.body.classList.toggle("cards-collapsed", collapseOn());
   document.body.classList.toggle("cards-expanded", expandOn()); requestAnimationFrame(fitScene);
   const body = h("div", { class:"stage-body" });
   if (p === 0 && fac) body.append(planEditor());
@@ -2138,10 +2155,10 @@ function buildStage(p){
   body.append(h("div", { id:"stageDyn" }));
   stage.append(
     h("div", { class:"stage-head" }, h("h2", { id:"stageTitle", text: PHASES[p].name }), h("span", { class:"stage-stat", id:"stageStat" }),
-      collapseButton(),
+      p >= 1 && p <= 3 ? collapseButton() : null,
       p === 2 || p === 3 ? expandButton() : null,
       // desktop: the speedometer rides in the card box header, so it never covers the ship
-      h("span", { class:"head-speedo" }, $("seaBox"), $("speedo"), $("speedHidden"))),
+      h("span", { class:"head-speedo" }, $("speedo"), $("speedHidden"))),
     stepHint(p) || "",
     body,
     h("div", { class:"stage-foot" },
@@ -2154,15 +2171,16 @@ function buildStage(p){
 function planEditor(){
   const ship = h("input", { id:"shipName", maxlength:40, placeholder:"e.g. Sprint 24", value: S.ship || "", autocomplete:"off" });
   ship.oninput = () => onShipInput(ship);
-  return h("div", { class:"plan" },
-    h("div", { class:"ship-row" }, h("label", { for:"shipName", text:"Ship name" }), ship),
-    h("h3", { text:"Minutes per step" }), h("div", { class:"plan-grid" }, [1,2,3,4].map(p => {
+  const timing = h("details", { class:"timing" }, h("summary", {}, "Timing: ", h("b", { id:"timingTotal", text: totalMin() + " min" })),
+    h("div", { class:"plan-grid" }, [1,2,3,4].map(p => {
     const key = STEP_MIN_KEYS[p], id = "min-" + p;
     const inp = h("input", { type:"number", id, class:"min-in", min:1, max:60, step:1, value: C[key], "data-key": key });
     inp.onchange = () => { const v = clamp(Math.round(+inp.value) || DEFAULTS[key], 1, 60); inp.value = v; C[key] = v; sset("rtw-mins-" + team.id, 1); pushConfig(); };
     return h("div", { class:"plan-row" }, h("label", { for:id, text: PHASES[p].name }), h("span", { class:"min-wrap" }, inp, " min"));
   })));
+  return h("div", { class:"plan" }, h("div", { class:"ship-row" }, h("label", { for:"shipName", text:"Ship name" }), ship, timing));
 }
+const totalMin = () => [1,2,3,4].reduce((a, p) => a + (+stepMin(p) || 0), 0);
 function composer(){
   const seg = h("div", { class:"seg big", role:"radiogroup", "aria-label":"Card type" }, TYPES.flatMap(([t, name]) => {
     const inp = h("input", { type:"radio", name:"ctype", id:"ct-" + t, value: t });
@@ -2216,6 +2234,7 @@ function fillStage(p){
     nextBtn.title = left ? `${plural(left, "problem")} with votes still need an action and an owner` : "";
   }
   stage.querySelectorAll(".min-in").forEach(i => { if (i !== document.activeElement) i.value = C[i.dataset.key]; });
+  if ($("timingTotal")) $("timingTotal").textContent = totalMin() + " min";
 }
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 function stageStat(p){
@@ -2225,8 +2244,9 @@ function stageStat(p){
   if (p === 3) return plural(S.cards.filter(c => c.scraped).length, "action item");
   return "";
 }
+let showMoreProblems = false; // this tab only
 function stageContent(p){
-  if (p === 0) return [...dockChecklist(), ...whereWeLeftOff(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
+  if (p === 0) return [...whereWeLeftOff(), h("h3", { text:"Crew" }), h("div", { class:"crew" }, people().slice(0, 40).map(x =>
     h("span", { class:"crew-chip" }, h("span", { class:"dot", style:`background:${x.color}` }), x.id === me.id ? `${x.name} (you)` : x.name)))];
   if (p === 1){
     const mine = S.cards.filter(c => myCards.has(c.id)).reverse();
@@ -2246,14 +2266,16 @@ function stageContent(p){
     const back = open.filter(c => c.returned).sort(byVotes);
     // Every voted problem is listed (each needs an action before Harbor), then unvoted ones up to TOP_N
     const rest = open.filter(c => !c.returned).sort(byVotes), voted = rest.filter(c => totalVotes(c) > 0);
-    const top = [...back, ...voted, ...rest.filter(c => !totalVotes(c)).slice(0, Math.max(0, TOP_N - back.length - voted.length))];
+    const top = [...back, ...voted], more = rest.filter(c => !totalVotes(c));
+    const fold = more.length && isFac() ? h("details", { class:"more-problems" }, h("summary", { text:`Show ${plural(more.length, "more problem")} without votes` }), h("ul", { class:"cards" }, more.map(c => tile(c, "course")))) : null;
+    if (fold){ fold.open = showMoreProblems; fold.ontoggle = () => { showMoreProblems = fold.open; }; }
     return [
-      h("section", {}, h("h3", { class:"col-h", text:"Top problems" }), top.length ? h("ul", { class:"cards" }, top.map(c => tile(c, "course"))) : h("p", { class:"muted", text:"None left" })),
+      top.length || fold ? h("section", {}, h("h3", { class:"col-h", text:"Voted problems" }), top.length ? h("ul", { class:"cards" }, top.map(c => tile(c, "course"))) : null, fold) : null,
       h("section", {}, h("h3", { class:"col-h", text:"★ Action items" }), actList)
     ];
   }
-  if (S.landed) return [h("p", { class:"docked", text:`⚓ ${S.ship || "The ship"} is docked. This voyage is saved in the Logbook.` }), h("h3", { class:"col-h", text:"★ Action items" }), actList];
-  return [...(S.star ? starCheckSection("harbor") : []), ...nextStarSection(), h("h3", { class:"col-h", text:"★ Action items" }),
+  if (S.landed) return [h("p", { class:"docked", text:`⚓ ${S.ship || "The ship"} is docked. This voyage is saved in the Logbook.` }), ...nextStarSection()];
+  return [...(S.star ? starCheckSection("harbor") : []), h("h3", { class:"col-h", text:"★ Action items" }),
     noOwner ? h("p", { class:"warn", role:"note", text:`⚠ ${plural(noOwner, "action item")} ${noOwner === 1 ? "has" : "have"} no owner. ${isFac() ? "Use Edit to pick one." : "Unowned actions rarely get done."}` }) : null,
     actList];
 }
@@ -2435,31 +2457,19 @@ function nextRetro(){
    ================================================================ */
 const TOURS = {
   facilitator: [
-    ["Two links", () => [
-      h("p", { text:"Share the team link with everyone. Keep the facilitator link private: it moves the steps and sees retro health." }),
-      ...linkRow("Team link (share with everyone)", teamLink()), ...linkRow("Facilitator link (keep private)", facLink())]],
-    ["Five steps, you steer", () => [
-      h("p", { text: PHASES.map(p => p.name).join(" → ") }),
-      h("p", { text:"Only you move everyone on, with Next. The timer is a guide: nothing moves on by itself." })]],
-    ["Speed, sea and returning icebergs", () => [h("ul", { class:"tour-list" },
-      h("li", {}, h("b", { text:"Speed" }), " = how much of the crew takes part: cards in Sail and everyone who votes in Navigate."),
-      h("li", {}, h("b", { text:"Sea" }), " = how the sprint felt. Icebergs make it rough. They never slow the ship."),
-      h("li", {}, "A ", h("b", { text:"bigger, grey iceberg" }), " rising from the water is a problem that came back. Back 3 retros in a row, it turns ", h("b", { text:"black" }), "."))]],
-    ["Try it first", () => [
-      h("p", { text:"Simulated people add cards in Sail and vote in Navigate, so you can see the ship react before your team joins." }),
-      h("button", { class:"btn primary", type:"button", id:"tourSim", text:"Simulate team", onclick: () => { closeTour(); if (!simTimer) toggleSim(); } })]],
+    ["How it works", () => [
+      h("p", { text:"Share the team link. The crew writes cards and votes, and the ship goes faster. You move everyone through the 5 steps with Next." }),
+      h("p", { class:"center-actions" },
+        h("button", { class:"btn", type:"button", text:"Copy team link", onclick: e => { markShared(); copy(teamLink(), e.currentTarget); } }),
+        h("button", { class:"btn", type:"button", id:"tourSim", text:"Try with a simulated team", onclick: () => { closeTour(); if (!simTimer) toggleSim(); } }))]],
   ],
   participant: [
-    ["Three kinds of cards", () => [h("ul", { class:"tour-list" },
-      h("li", { class:"tour-type" }, typeIcon("wind", 20), h("span", {}, h("b", { text:"Wind" }), ": what helped us."), h("span", { class:"tour-ex", text:"“Pairing on the auth refactor”" })),
-      h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Iceberg" }), ": what blocked us."), h("span", { class:"tour-ex", text:"“Staging was down 2 days”" })),
-      h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Torn sail" }), ": small things that could have gone better."), h("span", { class:"tour-ex", text:"“Too many meetings on Thursday”" })))]],
-    ["Every card moves the ship", () => [
-      h("p", { text:"Every card you add makes the ship faster. Icebergs make the sea rough, they never slow the ship." }),
-      h("p", { text:"You can post anonymously." })]],
-    ["Votes and action items", () => [
-      h("p", { text:`You have ${C.VOTES_PER_PERSON} votes in Navigate. Put them on what matters most.` }),
-      h("p", { text:"Icebergs melt when someone owns an action item for them." })]],
+    ["How it works", () => [
+      h("p", { text:"Write cards, vote, and the ship goes faster." }),
+      h("ul", { class:"tour-list" },
+        h("li", { class:"tour-type" }, typeIcon("wind", 20), h("span", {}, h("b", { text:"Wind" }), ": what helped us.")),
+        h("li", { class:"tour-type" }, typeIcon("rock", 20), h("span", {}, h("b", { text:"Iceberg" }), ": what blocked us.")),
+        h("li", { class:"tour-type" }, typeIcon("barnacle", 20), h("span", {}, h("b", { text:"Torn sail" }), ": what could have gone better.")))]],
   ],
 };
 let tourKey = null, tourI = 0, tourReturn = null;
@@ -2469,11 +2479,12 @@ function openTour(key){
 }
 function renderTour(){
   const cards = TOURS[tourKey], [title, body] = cards[tourI];
-  $("tourCount").textContent = `${tourI + 1} of ${cards.length}`;
+  $("tourCount").textContent = cards.length > 1 ? `${tourI + 1} of ${cards.length}` : "";
+  $("tourCount").hidden = cards.length < 2; $("tourSkip").hidden = cards.length < 2;
   $("tourTitle").textContent = title;
   $("tourBody").replaceChildren(...body().filter(Boolean));
   $("tourBack").hidden = tourI === 0;
-  $("tourNext").textContent = tourI === cards.length - 1 ? "Done" : "Next";
+  $("tourNext").textContent = tourI === cards.length - 1 ? "Got it" : "Next";
   $("tourNext").focus();
 }
 function closeTour(){
@@ -2485,29 +2496,18 @@ function closeTour(){
 $("tourNext").onclick = () => { if (tourI < TOURS[tourKey].length - 1){ tourI++; renderTour(); } else closeTour(); };
 $("tourBack").onclick = () => { if (tourI > 0){ tourI--; renderTour(); } };
 $("tourSkip").onclick = closeTour;
+$("tourMore").onclick = () => { closeTour(); setHelp(true); };
 $("showTour").onclick = () => { setHelp(false); openTour(role); };
 function maybeTour(){ if (!sget("rtw-tour-" + role)) openTour(role); }
 
-/* Facilitator's first Dock: a checklist that ticks itself */
-const markShared = () => { sset("rtw-shared-" + team.id, 1); renderStage(); };
-function dockChecklist(){
-  if (!isFac() || team.sessions.length || S.phase !== 0) return [];
-  const items = [
-    ["Name the ship", !!S.ship],
-    ["Share the team link", !!sget("rtw-shared-" + team.id)],
-    ["Set minutes per step", !!sget("rtw-mins-" + team.id)],
-  ];
-  const ready = items.filter(x => x[1]).length;
-  return [h("h3", { text:`Before you cast off · ${ready} of ${items.length} ready` }), h("ul", { class:"checklist", "aria-label":"Checklist" }, items.map(([label, done]) =>
-    h("li", { class: done ? "done" : "todo" }, h("span", { class:"tick", "aria-hidden":"true", text: done ? "✓" : "" }), h("span", { text: label + (done ? " (done)" : "") }))))];
-}
+const markShared = () => sset("rtw-shared-" + team.id, 1);
 /* Each step's hint shows once per person, the first time they see that step */
 function stepHint(p){
   const seen = sget("rtw-seen-steps") || [];
   if (seen.includes(PHASES[p].key)) return null;
   sset("rtw-seen-steps", [...seen, PHASES[p].key]);
   const text = p === 0 && !S.star ? "Name the ship, then check in as the crew comes aboard."
-    : p === 4 && !S.star ? "Tie the next star to an iceberg, then save the voyage."
+    : p === 4 && !S.star ? "Check the action items, then save the voyage. The next star comes after."
     : PHASES[p].hint;
   return h("p", { class:"step-hint", text: p === 2 && isFac() ? text + " Drag a card onto a duplicate to merge them." : text });
 }
@@ -2887,8 +2887,8 @@ function rebuildAll(){
   recompute(); renderBarnacles(); renderRocks(); renderStars(); renderTitle(); renderPhase(); renderStage(true); renderModal(); syncSilent(); applySpeedoVisibility(); renderParams();
 }
 function start(){
+  document.body.classList.add("aboard");
   document.body.classList.toggle("is-fac", isFac());
-  document.body.classList.toggle("cards-collapsed", cardsCollapsed);
   $("roleChip").textContent = isFac() ? "Facilitator" : "Crew";
   document.title = `${S.ship || team.name} · RetroTailWind`;
   if (!cloud()) try { bc = new BroadcastChannel("rtw-" + team.id); bc.onmessage = e => onRemote(e.data); } catch { bc = null; }
@@ -2919,23 +2919,26 @@ function setPanel(id, open){
   $("tuneToggle").setAttribute("aria-expanded", open);
 }
 const togglePanel = id => setPanel(id, $(id).classList.contains("closed"));
-$("tuneToggle").onclick = () => togglePanel("tunePanel");
+$("tuneToggle").onclick = () => { setMenu(false); togglePanel("tunePanel"); };
+function setMenu(open){ $("menu").hidden = !open; $("menuBtn").setAttribute("aria-expanded", String(open)); }
+$("menuBtn").onclick = e => { e.stopPropagation(); setMenu($("menu").hidden); };
+document.addEventListener("click", e => { if (!$("menu").hidden && !e.target.closest(".menu-wrap")) setMenu(false); });
+$("menuHelp").onclick = () => { setMenu(false); setHelp(true, $("menuBtn")); };
 $("closeTune").onclick = () => setPanel("tunePanel", false);
 $("mTune").onclick = () => togglePanel("tunePanel");
-const openLog = () => { centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
+const openLog = () => { setMenu(false); centerMode = centerMode === "logbook" ? null : "logbook"; renderModal(); };
 $("logBtn").onclick = openLog; $("mLog").onclick = openLog;
 $("copyLink").onclick = async () => {
   markShared();
-  if (await copy(teamLink(), $("copyLink"))) plainToast("Team link copied. Bookmark it to keep your star history.");
+  const ok = await copy(teamLink(), $("copyLink"));
+  setTimeout(() => setMenu(false), 600);
+  if (ok) plainToast("Team link copied. Bookmark it to keep your star history.");
   else { centerMode = "links"; renderModal(); }
 };
 let helpOpener = null;
 function renderSeaHelp(){
   if (!S) return;
-  $("seaScale").replaceChildren(...SEA_WORDS.map(([, w]) => h("li", { class: w === model.sea.word ? "now" : null, "aria-current": w === model.sea.word ? "true" : null },
-    h("b", { text: w }), h("span", { text: SEA_MEANING[w] + (w === model.sea.word ? " (now)" : "") }))));
-  const open = S.cards.filter(isOpenProblem), ice = open.filter(c => c.type === "rock").length;
-  $("seaNow").textContent = `Right now: ${plural(ice, "open iceberg")}, ${plural(open.length - ice, "torn sail")} and ${plural(S.cards.filter(c => c.type === "wind").length, "wind card")}. Owning an action melts an iceberg or patches a sail, and calms the sea.`;
+  $("seaNow").textContent = `The sea right now: ${model.sea.word}. ${SEA_MEANING[model.sea.word]}`;
 }
 function setHelp(open, opener){
   if (open) renderSeaHelp();
@@ -2945,12 +2948,13 @@ function setHelp(open, opener){
   else if (helpOpener){ helpOpener.focus(); helpOpener = null; }
 }
 document.querySelectorAll(".help-btn").forEach(b => b.onclick = () => setHelp($("helpPanel").hidden, b));
-document.querySelectorAll("button.sea-word").forEach(b => b.onclick = () => { setHelp(true, b); $("seaHelpTitle").scrollIntoView({ block: "nearest" }); });
+document.querySelectorAll("button.sea-word").forEach(b => b.onclick = () => setHelp(true, b));
 $("helpClose").onclick = () => setHelp(false);
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (!$("actDlg").hidden){ closeActionDlg(); return; }
   if (!$("tour").hidden){ closeTour(); return; }
+  if (!$("menu").hidden){ setMenu(false); $("menuBtn").focus(); return; }
   if (!$("helpPanel").hidden){ setHelp(false); return; }
   setPanel("tunePanel", false);
   if (!$("center").hidden) $("centerClose").click();
