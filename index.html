@@ -266,11 +266,6 @@ ul.merged li{display:flex;align-items:center;gap:6px;justify-content:space-betwe
 #speedo{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ui-bg);backdrop-filter:blur(10px);
   border:1px solid var(--ui-line);border-radius:var(--radius);padding:8px 14px;display:flex;gap:14px;align-items:center;z-index:12}
 #speedo.hidden{display:none}
-.speed-pop{position:fixed;transform:translate(-50%,-100%);z-index:30;pointer-events:none;font-weight:700;font-size:15px;color:var(--zone-green);
-  background:rgba(10,25,45,.85);border:1px solid rgba(95,210,138,.5);border-radius:999px;padding:2px 10px;animation:speedPop 1.6s ease-out forwards}
-.speed-pop.still{animation:speedPopStill 1.6s linear forwards}
-@keyframes speedPop{0%{opacity:0;transform:translate(-50%,-60%)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-240%)}}
-@keyframes speedPopStill{0%,80%{opacity:1}100%{opacity:0}}
 #speedo svg.spark{display:none} /* the speed chart made the scene busy */
 .knots{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
 .knots small{font-size:13px;font-weight:500;color:var(--ui-muted)}
@@ -1180,11 +1175,10 @@ function apply(a, local){
   switch (a.type){
     case "card.add": {
       if (byId(a.card.id)) return;
-      const before = model.target;
       S.cards.push(a.card);
       // Count only. The card never stores who wrote an anonymous card.
       if (a.by){ S.contributors ||= {}; S.contributors[a.by] = (S.contributors[a.by] || 0) + 1; }
-      recompute(); renderStage(); speedPop(model.target - before);
+      recompute(); renderStage();
       if (a.card.type === "barnacle") renderBarnacles(a.card.id);
       if (a.card.type === "wind") gustFx();
       else if (a.card.returned) returnFx(renderRocks(a.card.id));
@@ -1196,10 +1190,9 @@ function apply(a, local){
     }
     case "vote": {
       const c = byId(a.cardId); if (!c) return;
-      const before = model.target;
       const n = Math.max(0, (c.votes[a.pid] || 0) + a.delta);
       if (n) c.votes[a.pid] = n; else delete c.votes[a.pid];
-      recompute(); renderStage(); speedPop(model.target - before);
+      recompute(); renderStage();
       if (c.type === "barnacle") renderBarnacles(); else if (c.type === "rock") renderRocks();
       if (a.delta > 0 && c.type === "wind") gustBoost = Math.max(gustBoost, .5);
       if (a.delta > 0 && c.type === "rock") jolt = Math.max(jolt, .4);
@@ -2663,16 +2656,6 @@ const sqEls = SQUARE_SAILS.map(() => el("path", {}, $("squareSails")));
 SQUARE_SAILS.forEach(([x, y0, , w]) => el("line", { x1: x - w - 6, y1: y0, x2: x + w + 6, y2: y0 }, $("yards")));
 const needle = $("needle"), gaugeArc = $("gaugeArc"), targetTick = $("targetTick"), northStar = $("northStar"), nsGlow = $("nsGlow");
 
-/* "+0.5 kn" floats up from the speedometer when someone's card or vote adds speed.
-   No name and no count: everyone sees the ship react, nobody is singled out. */
-function speedPop(d){
-  if (!(d >= .05) || !C.SHOW_SPEEDOMETER || !S || S.phase === 0 || S.phase === 4) return;
-  const box = $("speedo").getBoundingClientRect(); if (!box.width) return;
-  const e = h("div", { class:"speed-pop" + (reduced ? " still" : ""), "aria-hidden":"true", text:`+${d.toFixed(1)} kn` });
-  e.style.left = `${Math.round(box.left + box.width / 2)}px`; e.style.top = `${Math.round(box.top)}px`;
-  document.body.append(e);
-  setTimeout(() => e.remove(), 1700);
-}
 /* Share of the crew taking part, 0..1, read back from a speed in knots (drift left out) */
 const shareOf = v => clamp((v - C.BASE_DRIFT) / (C.MAX_SPEED - C.BASE_DRIFT), 0, 1);
 function frame(now){
