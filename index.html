@@ -59,7 +59,7 @@ body.cards-collapsed #stage .stage-body,body.cards-collapsed #stage .step-hint{d
 @media (max-width:760px){ body.cards-collapsed{--sea-h:calc(100vh - 220px)} }
 .collapse-btn{white-space:nowrap}
 /* Before anyone joins, no speed widget behind the landing or name dialog */
-body:not(.aboard) #speedo,body:not(.aboard) #speedHidden{display:none!important}
+body:not(.aboard) #speedo,body:not(.aboard) #speedHidden,body.in-dock #speedo,body.in-dock #speedHidden{display:none!important}
 /* Header menu: Copy link, Logbook, Tune, How it works */
 .menu-wrap{position:relative}
 #menu{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;display:grid;padding:6px;z-index:30;
@@ -2149,6 +2149,7 @@ function buildStage(p){
   stage.innerHTML = "";
   document.body.classList.toggle("cards-collapsed", collapseOn());
   document.body.classList.toggle("cards-expanded", expandOn()); requestAnimationFrame(fitScene);
+  document.body.classList.toggle("in-dock", p === 0); // Lis: no speed in the first step, it appears when Sail starts
   const body = h("div", { class:"stage-body" });
   if (p === 0 && fac) body.append(planEditor());
   if (p === 1) body.append(composer());
