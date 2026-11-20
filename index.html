@@ -2748,7 +2748,12 @@ $("createForm").onsubmit = async e => {
       ]), 10000);
     } catch (err){
       btn.disabled = false; btn.textContent = "Create team";
-      $("landingMsg").hidden = false; $("landingMsg").textContent = "Couldn't reach the database. Check your internet and try again.";
+      console.warn("Create team failed", err);
+      const denied = /permission/i.test(err && (err.code || err.message) || "");
+      $("landingMsg").hidden = false;
+      $("landingMsg").textContent = denied
+        ? "The database refused to save (permission denied). Check the Realtime Database rules in Firebase."
+        : "Couldn't reach the database. Check your internet and try again.";
       return;
     }
   }
