@@ -1630,11 +1630,11 @@ function renderRocks(newId){
   }
   if (rest.length){
     const free = Math.max(right - fx, W * .3);
-    const need = rest.reduce((a, c) => a + 2 * ICE_HALF * iceScale(c) + 6, 0);
-    const bs = clamp(Math.min(.62, 1.9 * free / need), .2, .62);
-    const rows = [{ y: 572, x: right, s: bs }, { y: 550, x: right, s: bs * .85 }];
+    // Lis: keep them big enough to read (fixed size); what does not fit goes into "+N more"
+    const rows = [{ y: 572, x: right, s: .6 }, { y: 550, x: right, s: .5 }];
     for (const c of rest){
-      const row = rows.find(r => r.x - 2 * ICE_HALF * iceScale(c) * r.s >= right - free) || rows[1];
+      const row = rows.find(r => r.x - 2 * ICE_HALF * iceScale(c) * r.s >= right - free - 30);
+      if (!row) continue;
       const sc = iceScale(c) * row.s, half = ICE_HALF * sc;
       placed.push({ c, x: row.x - half, y: row.y, sc, back: row === rows[0] ? 1 : 2 }); row.x -= 2 * half + 4;
     }
@@ -1685,7 +1685,7 @@ function renderRocks(newId){
       el("text", { x: 12, y: -1, fill: "#eef3fa", "font-size": 16, "font-weight": 600 }, more);
     }
     more.querySelector("text").textContent = `+${open.length - placed.length} more`;
-    more.setAttribute("transform", `translate(${(right - 100).toFixed(1)},520)`); // above the far icebergs
+    more.setAttribute("transform", `translate(${(right - 100).toFixed(1)},500)`); // above the far icebergs
     g.appendChild(more);
   } else if (more) more.remove();
   return made;
@@ -2808,6 +2808,7 @@ function frame(now){
     if (!reduced) w.off = (w.off + (sceneV * C.SCENE_SPEED_SCALE + 10 * (1 - dk * .7)) * w.k * dt) % w.len;
     const dy = reduced ? 0 : Math.sin(t*1.1 + w.k*3) * w.amp * (.25 + rough * .6);
     w.el.setAttribute("transform", `translate(${-w.off},${dy + w.y}) scale(1,${waveH.toFixed(3)}) translate(0,${-w.y})`);
+    w.dy = dy; w.h = waveH;
   }
   tickRocks(dt);
   if (!reduced) swayWinds(t);
@@ -2832,8 +2833,16 @@ function frame(now){
 
   // Rough sea: the boat sits a little lower and rocks harder. It never slows down.
   sink += (rough * 5 - sink) * (1 - Math.exp(-dt / .8)); // a little lower in a rough sea, never enough to drown the name
-  const bob = reduced ? 0 : Math.sin(t * 1.4) * (5 + rough * 6);
-  const tilt = (reduced ? 0 : Math.sin(t * .9) * (1.6 + rough * 3.5)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, sceneV * .25);
+  // Lis 2026-11-20: the ship rides the front waves (rises on a crest, dips in a trough, pitches with the slope)
+  // and sits higher in a rough sea, so the waves never wash over the name on the hull.
+  const W1 = WAVES[1], surf = x => { // height of the front wave's surface at scene x (the path is close to a sine)
+    const ph = ((x + W1.off + 3000) / W1.len) * Math.PI * 2;
+    return W1.y + (W1.dy || 0) - Math.sin(ph) * (W1.amp / 2) * (W1.h || 1);
+  };
+  const ride = reduced ? 0 : (surf(shipX - 110) + surf(shipX + 170)) / 2 - W1.y;
+  const pitch = reduced ? 0 : Math.atan2(surf(shipX + 170) - surf(shipX - 110), 280) * 180 / Math.PI * .8;
+  const bob = ride * .9 - (6 + rough * 14);
+  const tilt = pitch + (reduced ? 0 : Math.sin(t * .9) * (0.8 + rough * 1.2)) + Math.sin(jolt * 14) * jolt * 6 - Math.min(4, sceneV * .25);
   // The ship sails further ahead the more of the crew takes part (Lis, 2026-11-20). Icebergs never push it back.
   // 800 = bowsprit just short of the first iceberg; narrow screens move less, so it stays in frame.
   const share = shareOf(speed);
